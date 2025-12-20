@@ -1,0 +1,72 @@
+:root,
+page {
+  --bbq-bg: #f6f7f9;
+  --bbq-card: #ffffff;
+  --bbq-text: #111111;
+  --bbq-muted: #6b7280;
+  --bbq-border: #eeeeee;
+  --bbq-shadow: 0 8rpx 24rpx rgba(17, 17, 17, 0.06);
+  --bbq-radius-card: 18rpx;
+  --bbq-radius-btn: 999rpx;
+  --bbq-space-1: 8rpx;
+  --bbq-space-2: 12rpx;
+  --bbq-space-3: 16rpx;
+  --bbq-space-4: 20rpx;
+  --bbq-text-lg: 40rpx;
+  --bbq-text-md: 30rpx;
+  --bbq-text-sm: 26rpx;
+  --bbq-text-xs: 24rpx;
+  --bbq-safe-bottom: env(safe-area-inset-bottom);
+  --bbq-tabbar-height: var(--tab-bar-height, 50px);
+}
+
+.bbq-page {
+  min-height: 100vh;
+  background: var(--bbq-bg);
+  color: var(--bbq-text);
+}
+
+.bbq-container {
+  padding: var(--bbq-space-3);
+}
+
+.bbq-title {
+  font-size: var(--bbq-text-lg);
+  font-weight: 700;
+  letter-spacing: 0.2rpx;
+}
+
+.bbq-subtitle {
+  font-size: var(--bbq-text-md);
+  font-weight: 700;
+}
+
+.bbq-muted {
+  color: var(--bbq-muted);
+}
+
+.bbq-hint {
+  font-size: var(--bbq-text-xs);
+  color: var(--bbq-muted);
+}
+
+.bbq-pill {
+  border-radius: var(--bbq-radius-btn);
+}
+
+.bbq-btn-primary {
+  background: #111111;
+  color: #ffffff;
+  border-radius: var(--bbq-radius-btn);
+}
+
+.bbq-btn-ghost {
+  background: #ffffff;
+  color: #111111;
+  border: 1px solid var(--bbq-border);
+  border-radius: var(--bbq-radius-btn);
+}
+
+.bbq-safe-bottom-pad {
+  padding-bottom: calc(var(--bbq-safe-bottom) + var(--bbq-space-3));
+}

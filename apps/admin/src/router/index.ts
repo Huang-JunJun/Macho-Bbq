@@ -1,0 +1,43 @@
+import { createRouter, createWebHistory } from 'vue-router';
+import { useAuthStore } from '../stores/auth';
+import LoginPage from '../pages/Login.vue';
+import AdminLayout from '../layouts/AdminLayout.vue';
+import TablesPage from '../pages/Tables.vue';
+import CategoriesPage from '../pages/Categories.vue';
+import ProductsPage from '../pages/Products.vue';
+import OrdersPage from '../pages/Orders.vue';
+import StorePage from '../pages/Store.vue';
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    { path: '/login', component: LoginPage, meta: { public: true } },
+    {
+      path: '/',
+      component: AdminLayout,
+      children: [
+        { path: '', redirect: '/orders' },
+        { path: 'tables', component: TablesPage },
+        { path: 'categories', component: CategoriesPage },
+        { path: 'products', component: ProductsPage },
+        { path: 'orders', component: OrdersPage },
+        { path: 'store', component: StorePage }
+      ]
+    },
+    { path: '/:pathMatch(.*)*', redirect: '/orders' }
+  ]
+});
+
+router.beforeEach((to) => {
+  const isPublic = Boolean(to.meta.public);
+  const auth = useAuthStore();
+  if (isPublic) {
+    if (to.path === '/login' && auth.isAuthed) return '/orders';
+    return true;
+  }
+  if (!auth.isAuthed) return { path: '/login', query: { redirect: to.fullPath } };
+  return true;
+});
+
+export default router;
+

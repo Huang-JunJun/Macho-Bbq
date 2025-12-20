@@ -1,0 +1,74 @@
+<template>
+  <el-card>
+    <template #header>
+      <div style="display: flex; align-items: center">
+        <div style="font-weight: 700; flex: 1">门店配置</div>
+        <el-button @click="prefill" :loading="loading">从服务端读取</el-button>
+      </div>
+    </template>
+
+    <el-form :model="form" label-width="90px" style="max-width: 520px">
+      <el-form-item label="storeId">
+        <el-input :model-value="storeId" readonly />
+      </el-form-item>
+      <el-form-item label="名称">
+        <el-input v-model="form.name" />
+      </el-form-item>
+      <el-form-item label="地址">
+        <el-input v-model="form.address" />
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" :loading="saving" @click="save">保存</el-button>
+      </el-form-item>
+    </el-form>
+  </el-card>
+</template>
+
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref } from 'vue';
+import { ElMessage } from 'element-plus';
+import { adminApi } from '../api/admin';
+import { useAuthStore } from '../stores/auth';
+
+const auth = useAuthStore();
+const storeId = computed(() => auth.storeId);
+
+const form = reactive({ name: '', address: '' });
+const loading = ref(false);
+const saving = ref(false);
+
+async function prefill() {
+  if (!storeId.value) {
+    ElMessage.warning('token 中缺少 storeId');
+    return;
+  }
+  loading.value = true;
+  try {
+    const res = await adminApi.getStoreInfo(storeId.value);
+    form.name = res.store.name;
+    form.address = res.store.address ?? '';
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message ?? '读取失败');
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function save() {
+  saving.value = true;
+  try {
+    if (!form.name.trim()) {
+      ElMessage.warning('请输入名称');
+      return;
+    }
+    await adminApi.updateStore({ name: form.name.trim(), address: form.address.trim() || undefined });
+    ElMessage.success('已保存');
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message ?? '保存失败');
+  } finally {
+    saving.value = false;
+  }
+}
+
+onMounted(prefill);
+</script>

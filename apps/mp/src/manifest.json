@@ -1,0 +1,16 @@
+{
+  "name": "bbq-miniapp-mp",
+  "appid": "__UNI__BBQMINIAPP__",
+  "description": "",
+  "versionName": "0.0.1",
+  "versionCode": "1",
+  "transformPx": false,
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false
+    },
+    "usingComponents": true
+  }
+}
+

@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum SpiceLevel {
+  NONE
+  MILD
+  MEDIUM
+  HOT
+}
+
+enum OrderStatus {
+  ORDERED
+  SETTLED
+  CANCELLED
+}
+
+model store {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  adminUsers admin_user[]
+  tables     table[]
+  categories category[]
+  products   product[]
+  orders     order[]
+}
+
+model admin_user {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  storeId      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  store store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+model table {
+  id        String   @id @default(cuid())
+  name      String
+  isActive  Boolean  @default(true)
+  storeId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store  store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orders order[]
+
+  @@unique([storeId, name])
+}
+
+model category {
+  id        String   @id @default(cuid())
+  name      String
+  sort      Int      @default(0)
+  storeId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store    store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  products product[]
+
+  @@unique([storeId, name])
+}
+
+model product {
+  id        String   @id @default(cuid())
+  name      String
+  price     Int
+  imageUrl  String?
+  isOnSale  Boolean  @default(true)
+  isSoldOut Boolean  @default(false)
+  sort      Int      @default(0)
+  storeId   String
+  categoryId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store    store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  orderItems order_item[]
+
+  @@index([storeId, categoryId])
+}
+
+model order {
+  id         String      @id @default(cuid())
+  status     OrderStatus @default(ORDERED)
+  spiceLevel SpiceLevel
+  remark     String?
+  amount     Int
+  storeId    String
+  tableId    String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  store store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  table table @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  items order_item[]
+
+  @@index([storeId, tableId, createdAt])
+}
+
+model order_item {
+  id            String @id @default(cuid())
+  orderId       String
+  productId     String
+  nameSnapshot  String
+  priceSnapshot Int
+  qty           Int
+
+  order   order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+}

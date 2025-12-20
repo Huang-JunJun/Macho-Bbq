@@ -1,0 +1,11 @@
+{
+  "name": "bbq-miniapp",
+  "private": true,
+  "packageManager": "pnpm@9.15.5",
+  "scripts": {
+    "dev": "pnpm -C apps/admin dev"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
