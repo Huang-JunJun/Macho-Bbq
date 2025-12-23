@@ -11,42 +11,44 @@
             <view class="tab" :class="{ on: uiTab === 'history' }" @click="uiTab = 'history'">历史订单</view>
           </view>
         </view>
-        <view class="nav-right" @click="toast('开发中')">⋯</view>
+        <view class="nav-right"></view>
       </view>
 
       <view class="filters">
-        <view class="chip on">ORDERED</view>
-        <view class="chip">SETTLED</view>
-        <view class="meta bbq-hint">桌号 {{ tableStore.tableName || tableStore.tableId || defaultTableId || '-' }}</view>
+        <view class="chip on">已下单</view>
+        <view class="meta bbq-hint">桌号 {{ tableStore.tableName || tableStore.tableId || '-' }}</view>
       </view>
 
-      <view v-if="loading" class="state">
-        <view class="state-text bbq-hint">加载中</view>
+      <view v-if="!ready" class="gate">
+        <view class="gate-card">
+          <view class="gate-title">请先扫码桌贴开始点单</view>
+          <view class="gate-sub bbq-hint">选择人数后才会生成本次用餐订单列表</view>
+          <button class="gate-btn bbq-pill" @click="goScan">扫码点单</button>
+        </view>
       </view>
 
-      <view v-else-if="!ready" class="state">
-        <image class="state-img" src="/static/empty.svg" mode="widthFix" />
-        <view class="state-title">请先配置默认桌号</view>
-        <view class="state-text bbq-hint">在 apps/mp/.env 设置 VITE_DEFAULT_STORE_ID / VITE_DEFAULT_TABLE_ID</view>
-        <button class="state-btn ghost bbq-pill" @click="goMenu">去点单</button>
-      </view>
+      <view v-else>
+        <view v-if="loading" class="state">
+          <view class="state-text bbq-hint">加载中</view>
+        </view>
 
-      <view v-else-if="orders.length === 0" class="state">
-        <image class="state-img" src="/static/empty.svg" mode="widthFix" />
-        <view class="state-title">您今天还没有下单</view>
-        <view class="state-text bbq-hint">快去选择喜欢的商品吧</view>
-        <button class="state-btn ghost bbq-pill" @click="goMenu">去点单</button>
-      </view>
+        <view v-else-if="orders.length === 0" class="state">
+          <image class="state-img" src="/static/empty.svg" mode="widthFix" />
+          <view class="state-title">您今天还没有下单</view>
+          <view class="state-text bbq-hint">快去选择喜欢的商品吧</view>
+          <button class="state-btn ghost bbq-pill" @click="goMenu">去点单</button>
+        </view>
 
-      <view v-else class="list">
-        <view v-for="o in orders" :key="o.id" class="card" @click="goDetail(o.id)">
-          <view class="row">
-            <view class="id">{{ o.id }}</view>
-            <view class="status">{{ statusText(o.status) }}</view>
-          </view>
-          <view class="row sub">
-            <view class="amt">￥{{ (o.amount / 100).toFixed(2) }}</view>
-            <view class="time bbq-hint">{{ o.createdAt }}</view>
+        <view v-else class="list">
+          <view v-for="o in orders" :key="o.id" class="card" @click="goDetail(o.id)">
+            <view class="row">
+              <view class="id">{{ o.id }}</view>
+              <view class="status">{{ statusText(o.status) }}</view>
+            </view>
+            <view class="row sub">
+              <view class="amt">￥{{ (o.amount / 100).toFixed(2) }}</view>
+              <view class="time bbq-hint">{{ o.createdAt }}</view>
+            </view>
           </view>
         </view>
       </view>
@@ -61,23 +63,15 @@ import { computed, ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { api, type Order } from '../../api';
 import { useTableStore } from '../../stores/table';
+import { scanToOrder } from '../../common/scan';
 
 const tableStore = useTableStore();
 const orders = ref<Order[]>([]);
 const loading = ref(false);
 const uiTab = ref<'today' | 'history'>('today');
 
-function getEnv(key: string) {
-  const env = (import.meta as any)?.env ?? {};
-  return String(env[key] ?? '');
-}
-
-const defaultTableId = getEnv('VITE_DEFAULT_TABLE_ID');
-
 const ready = computed(() => {
-  const storeId = tableStore.storeId || getEnv('VITE_DEFAULT_STORE_ID');
-  const tableId = tableStore.tableId || getEnv('VITE_DEFAULT_TABLE_ID');
-  return !!storeId && !!tableId;
+  return !!tableStore.isReady;
 });
 
 function toast(msg: string) {
@@ -92,14 +86,13 @@ function statusText(s: Order['status']) {
 async function reload() {
   loading.value = true;
   try {
-    const storeId = tableStore.storeId || getEnv('VITE_DEFAULT_STORE_ID');
-    const tableId = tableStore.tableId || getEnv('VITE_DEFAULT_TABLE_ID');
-    if (!storeId || !tableId) {
+    const sessionId = tableStore.sessionId;
+    if (!ready.value || !sessionId) {
       orders.value = [];
       return;
     }
-    const res = await api.listOrders({ storeId, tableId });
-    orders.value = res.orders;
+    const res = await api.listOrdersBySession(sessionId);
+    orders.value = res.orders.filter((o) => o.status === 'ORDERED');
   } catch (e: any) {
     toast(e?.message ?? '加载失败');
   } finally {
@@ -119,7 +112,12 @@ function goMenu() {
   uni.switchTab({ url: '/pages/menu/index' });
 }
 
+function goScan() {
+  scanToOrder();
+}
+
 onShow(() => {
+  if (!ready.value) return;
   reload();
 });
 </script>
@@ -267,5 +265,40 @@ onShow(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: right;
+}
+.gate {
+  padding: 40rpx 0;
+}
+.gate-card {
+  width: 100%;
+  background: var(--bbq-card);
+  border-radius: var(--bbq-radius-card);
+  box-shadow: var(--bbq-shadow);
+  padding: 28rpx 22rpx;
+  border: 1px solid var(--bbq-border);
+  box-sizing: border-box;
+}
+.gate-title {
+  font-size: 34rpx;
+  font-weight: 900;
+  color: var(--bbq-text);
+  text-align: center;
+}
+.gate-sub {
+  margin-top: 10rpx;
+  text-align: center;
+  font-size: 26rpx;
+}
+.gate-btn {
+  margin-top: 18rpx;
+  height: 92rpx;
+  line-height: 92rpx;
+  background: #111111;
+  color: #ffffff;
+  font-size: 32rpx;
+  width: 100%;
+}
+.gate-btn::after {
+  border: none;
 }
 </style>

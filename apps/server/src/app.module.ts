@@ -4,6 +4,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './admin/admin.module';
 import { MiniappModule } from './miniapp/miniapp.module';
+import { MpModule } from './mp/mp.module';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { MiniappModule } from './miniapp/miniapp.module';
     PrismaModule,
     AuthModule,
     MiniappModule,
+    MpModule,
     AdminModule
   ]
 })

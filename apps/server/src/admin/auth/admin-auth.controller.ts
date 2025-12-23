@@ -20,8 +20,7 @@ export class AdminAuthController {
     const ok = await bcrypt.compare(dto.password, user.passwordHash);
     if (!ok) throw new UnauthorizedException('invalid credentials');
 
-    const accessToken = await this.jwt.signAsync({ sub: user.id, storeId: user.storeId });
+    const accessToken = await this.jwt.signAsync({ sub: user.id, storeId: user.storeId, role: user.role, email: user.email });
     return { accessToken };
   }
 }
-

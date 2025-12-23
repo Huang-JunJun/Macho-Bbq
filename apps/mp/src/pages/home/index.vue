@@ -3,7 +3,7 @@
     <view class="bbq-container">
       <view class="nav">
         <view class="nav-left"></view>
-        <view class="nav-title">猛男烧烤</view>
+        <view class="nav-title">{{ store?.name || '猛男烧烤' }}</view>
         <view class="nav-right" @click="toast('开发中')">⋯</view>
       </view>
 
@@ -11,66 +11,30 @@
         <image class="hero-img" src="/static/hero.svg" mode="widthFix" />
       </view>
 
-      <view class="entry-row">
-        <view class="entry" @click="goMenu">
-          <view class="entry-title">堂食</view>
-          <view class="entry-sub">DINE IN</view>
-          <image class="entry-ico" src="/static/icons/dinein.svg" mode="aspectFit" />
-        </view>
-        <view class="entry" @click="goMenu">
-          <view class="entry-title">打包</view>
-          <view class="entry-sub">PICK UP</view>
-          <image class="entry-ico" src="/static/icons/pickup.svg" mode="aspectFit" />
-        </view>
-        <view class="entry" @click="goMenu">
-          <view class="entry-title">外卖</view>
-          <view class="entry-sub">DELIVERY</view>
-          <image class="entry-ico" src="/static/icons/delivery.svg" mode="aspectFit" />
-        </view>
-      </view>
-
-      <AppCard class="quick">
-        <view class="quick-row">
-          <view class="quick-item" @click="toast('开发中')">
-            <view class="quick-ico">
-              <image class="quick-ico-img" src="/static/icons/crown.svg" mode="aspectFit" />
-            </view>
-            <view class="quick-txt">会员中心</view>
-          </view>
-          <view class="quick-item" @click="toast('开发中')">
-            <view class="quick-ico">
-              <image class="quick-ico-img" src="/static/icons/card.svg" mode="aspectFit" />
-            </view>
-            <view class="quick-txt">充值中心</view>
-          </view>
-          <view class="quick-item" @click="toast('开发中')">
-            <view class="quick-ico">
-              <image class="quick-ico-img" src="/static/icons/gift.svg" mode="aspectFit" />
-            </view>
-            <view class="quick-txt">优惠活动</view>
-          </view>
-        </view>
+      <AppCard class="scan-card" padded>
+        <view class="scan-title">扫码点单</view>
+        <view class="scan-sub bbq-hint">请扫描桌贴二维码开始点单</view>
+        <button class="scan-btn bbq-pill" @click="goMenu">扫码点单</button>
       </AppCard>
 
       <AppCard class="store-card">
-        <view class="store-title">猛男烧烤</view>
+        <view class="store-title">{{ store?.name || '猛男烧烤' }}</view>
         <view class="store-meta">
           <view class="store-line">
             <text class="label">营业时间</text>
-            <text class="value">18:00-次日 01:45</text>
+            <text class="value">{{ store?.businessHours || '-' }}</text>
           </view>
           <view class="store-line">
             <text class="label">地址</text>
-            <text class="value">美兰区琼东北街附近</text>
+            <text class="value">{{ store?.address || '-' }}</text>
           </view>
           <view class="store-line">
             <text class="label">电话</text>
-            <text class="value">15595767778</text>
+            <text class="value">{{ store?.phone || '-' }}</text>
           </view>
         </view>
         <view class="store-actions">
-          <button class="btn-ghost bbq-pill" @click="toast('开发中')">一键导航</button>
-          <button class="btn-ghost bbq-pill" @click="toast('开发中')">联系商家</button>
+          <button class="btn-ghost bbq-pill" @click="callStore">联系商家</button>
         </view>
       </AppCard>
 
@@ -80,15 +44,56 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
+import { onLoad } from '@dcloudio/uni-app';
 import AppCard from '../../components/AppCard.vue';
+import { api, type Store } from '../../api';
+import { scanToOrder } from '../../common/scan';
+
+const store = ref<Store | null>(null);
 
 function toast(msg: string) {
   uni.showToast({ title: msg, icon: 'none' });
 }
 
-function goMenu() {
-  uni.switchTab({ url: '/pages/menu/index' });
+function getDefaultStoreId() {
+  const env = (import.meta as any)?.env ?? {};
+  return String(env.VITE_DEFAULT_STORE_ID ?? 'store_demo');
 }
+
+function getStorePhone() {
+  const fromApi = String((store.value as any)?.phone ?? '');
+  if (fromApi) return fromApi;
+  const env = (import.meta as any)?.env ?? {};
+  return String(env.VITE_STORE_PHONE ?? '');
+}
+
+function goMenu() {
+  scanToOrder();
+}
+
+function callStore() {
+  const phone = getStorePhone().trim();
+  if (!phone) {
+    toast('未配置门店电话');
+    return;
+  }
+  uni.makePhoneCall({
+    phoneNumber: phone,
+    fail: () => toast('呼叫失败')
+  });
+}
+
+async function reload() {
+  const storeId = getDefaultStoreId();
+  if (!storeId) return;
+  const res = await api.getStoreInfo(storeId);
+  store.value = res.store as any;
+}
+
+onLoad(() => {
+  reload().catch(() => null);
+});
 </script>
 
 <style scoped>
@@ -126,10 +131,35 @@ function goMenu() {
 }
 .entry-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(1, 1fr);
   gap: var(--bbq-space-2);
   margin-top: var(--bbq-space-3);
   margin-bottom: var(--bbq-space-3);
+}
+.scan-card {
+  margin-top: var(--bbq-space-3);
+  margin-bottom: var(--bbq-space-3);
+}
+.scan-title {
+  font-size: 40rpx;
+  font-weight: 900;
+  color: var(--bbq-text);
+}
+.scan-sub {
+  margin-top: 10rpx;
+  font-size: 26rpx;
+}
+.scan-btn {
+  margin-top: 18rpx;
+  height: 92rpx;
+  line-height: 92rpx;
+  background: #111111;
+  color: #ffffff;
+  font-size: 32rpx;
+  width: 100%;
+}
+.scan-btn::after {
+  border: none;
 }
 .entry {
   background: var(--bbq-card);

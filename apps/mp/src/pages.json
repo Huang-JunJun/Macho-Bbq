@@ -17,6 +17,18 @@
       "style": { "navigationBarTitleText": "我的" }
     },
     {
+      "path": "pages/store-info/index",
+      "style": { "navigationBarTitleText": "门店信息" }
+    },
+    {
+      "path": "pages/feedback/index",
+      "style": { "navigationBarTitleText": "意见反馈" }
+    },
+    {
+      "path": "pages/notice/index",
+      "style": { "navigationBarTitleText": "就餐须知" }
+    },
+    {
       "path": "pages/scan/index",
       "style": { "navigationBarTitleText": "确认桌号" }
     },

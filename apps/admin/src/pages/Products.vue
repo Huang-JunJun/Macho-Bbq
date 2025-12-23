@@ -7,14 +7,16 @@
       </div>
     </template>
 
-    <el-table :data="products" style="width: 100%" v-loading="loading">
-      <el-table-column prop="name" label="名称" />
-      <el-table-column prop="price" label="价格(分)" width="120" />
-      <el-table-column prop="categoryId" label="类目" width="180">
-        <template #default="{ row }">
-          {{ categoryName(row.categoryId) }}
-        </template>
-      </el-table-column>
+	    <el-table :data="products" style="width: 100%" v-loading="loading">
+	      <el-table-column prop="name" label="名称" />
+	      <el-table-column label="价格(元)" width="120">
+	        <template #default="{ row }">￥{{ yuan(row.price) }}</template>
+	      </el-table-column>
+	      <el-table-column prop="categoryId" label="类目" width="180">
+	        <template #default="{ row }">
+	          {{ categoryName(row.categoryId) }}
+	        </template>
+	      </el-table-column>
       <el-table-column prop="isOnSale" label="上架" width="100">
         <template #default="{ row }">
           <el-tag v-if="row.isOnSale" type="success">是</el-tag>
@@ -45,12 +47,12 @@
 
   <el-dialog v-model="visible" :title="mode === 'create' ? '新增商品' : '编辑商品'" width="560px">
     <el-form :model="form" label-width="100px">
-      <el-form-item label="名称">
-        <el-input v-model="form.name" />
-      </el-form-item>
-      <el-form-item label="价格(分)">
-        <el-input-number v-model="form.price" :min="0" />
-      </el-form-item>
+	      <el-form-item label="名称">
+	        <el-input v-model="form.name" />
+	      </el-form-item>
+	      <el-form-item label="价格(元)">
+	        <el-input-number v-model="form.priceYuan" :min="0" :precision="2" :step="1" />
+	      </el-form-item>
       <el-form-item label="类目">
         <el-select v-model="form.categoryId" placeholder="请选择">
           <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
@@ -97,21 +99,29 @@ const products = ref<Product[]>([]);
 const categories = ref<Category[]>([]);
 
 const visible = ref(false);
-const mode = ref<'create' | 'edit'>('create');
-const editId = ref('');
-const form = reactive({
-  name: '',
-  price: 0,
-  categoryId: '',
-  imageUrl: '',
-  isOnSale: true,
-  isSoldOut: false,
-  sort: 0
-});
+	const mode = ref<'create' | 'edit'>('create');
+	const editId = ref('');
+	const form = reactive({
+	  name: '',
+	  priceYuan: 0,
+	  categoryId: '',
+	  imageUrl: '',
+	  isOnSale: true,
+	  isSoldOut: false,
+	  sort: 0
+	});
 
-function categoryName(id: string) {
-  return categories.value.find((c) => c.id === id)?.name ?? id;
-}
+	function categoryName(id: string) {
+	  return categories.value.find((c) => c.id === id)?.name ?? id;
+	}
+
+	function yuan(cents: number) {
+	  return (cents / 100).toFixed(2);
+	}
+
+	function toCents(v: number) {
+	  return Math.round((Number.isFinite(v) ? v : 0) * 100);
+	}
 
 async function reload() {
   loading.value = true;
@@ -124,31 +134,31 @@ async function reload() {
   }
 }
 
-function openCreate() {
-  mode.value = 'create';
-  editId.value = '';
-  form.name = '';
-  form.price = 0;
-  form.categoryId = categories.value[0]?.id ?? '';
-  form.imageUrl = '';
-  form.isOnSale = true;
-  form.isSoldOut = false;
-  form.sort = 0;
-  visible.value = true;
-}
+	function openCreate() {
+	  mode.value = 'create';
+	  editId.value = '';
+	  form.name = '';
+	  form.priceYuan = 0;
+	  form.categoryId = categories.value[0]?.id ?? '';
+	  form.imageUrl = '';
+	  form.isOnSale = true;
+	  form.isSoldOut = false;
+	  form.sort = 0;
+	  visible.value = true;
+	}
 
-function openEdit(row: Product) {
-  mode.value = 'edit';
-  editId.value = row.id;
-  form.name = row.name;
-  form.price = row.price;
-  form.categoryId = row.categoryId;
-  form.imageUrl = row.imageUrl ?? '';
-  form.isOnSale = row.isOnSale;
-  form.isSoldOut = row.isSoldOut;
-  form.sort = row.sort;
-  visible.value = true;
-}
+	function openEdit(row: Product) {
+	  mode.value = 'edit';
+	  editId.value = row.id;
+	  form.name = row.name;
+	  form.priceYuan = row.price / 100;
+	  form.categoryId = row.categoryId;
+	  form.imageUrl = row.imageUrl ?? '';
+	  form.isOnSale = row.isOnSale;
+	  form.isSoldOut = row.isSoldOut;
+	  form.sort = row.sort;
+	  visible.value = true;
+	}
 
 async function save() {
   saving.value = true;
@@ -161,24 +171,24 @@ async function save() {
       ElMessage.warning('请选择类目');
       return;
     }
-    if (mode.value === 'create') {
-      await adminApi.createProduct({
-        name: form.name.trim(),
-        price: form.price,
-        categoryId: form.categoryId,
-        imageUrl: form.imageUrl || undefined,
-        isOnSale: form.isOnSale,
-        isSoldOut: form.isSoldOut,
+	    if (mode.value === 'create') {
+	      await adminApi.createProduct({
+	        name: form.name.trim(),
+	        price: toCents(form.priceYuan),
+	        categoryId: form.categoryId,
+	        imageUrl: form.imageUrl || undefined,
+	        isOnSale: form.isOnSale,
+	        isSoldOut: form.isSoldOut,
         sort: form.sort
       });
-    } else {
-      await adminApi.updateProduct(editId.value, {
-        name: form.name.trim(),
-        price: form.price,
-        categoryId: form.categoryId,
-        imageUrl: form.imageUrl || undefined,
-        isOnSale: form.isOnSale,
-        isSoldOut: form.isSoldOut,
+	    } else {
+	      await adminApi.updateProduct(editId.value, {
+	        name: form.name.trim(),
+	        price: toCents(form.priceYuan),
+	        categoryId: form.categoryId,
+	        imageUrl: form.imageUrl || undefined,
+	        isOnSale: form.isOnSale,
+	        isSoldOut: form.isSoldOut,
         sort: form.sort
       });
     }
@@ -218,4 +228,3 @@ async function uploadRequest(options: any) {
 
 onMounted(reload);
 </script>
-

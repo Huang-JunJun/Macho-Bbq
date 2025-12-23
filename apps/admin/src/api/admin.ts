@@ -13,12 +13,16 @@ export type Store = {
   id: string;
   name: string;
   address: string | null;
+  businessHours?: string | null;
+  phone?: string | null;
+  spiceLabels?: Record<string, string> | null;
 };
 
 export type Table = {
   id: string;
   name: string;
   isActive: boolean;
+  isDeleted?: boolean;
   storeId: string;
 };
 
@@ -50,6 +54,56 @@ export type OrderItem = {
   orderId: string;
 };
 
+export type OrderSessionStatus = 'ACTIVE' | 'CLOSED';
+
+export type OrderSessionRow = {
+  sessionId: string;
+  tableId: string;
+  tableName: string | null;
+  dinersCount: number;
+  status: OrderSessionStatus;
+  orderCount: number;
+  totalAmount: number;
+  createdAt: string;
+  lastOrderAt: string;
+  settledAt: string | null;
+};
+
+export type OrderSessionDetail = {
+  session: {
+    sessionId: string;
+    tableId: string;
+    tableName: string | null;
+    dinersCount: number;
+    status: OrderSessionStatus;
+    createdAt: string;
+    lastOrderAt: string;
+    settledAt: string | null;
+    orderCount: number;
+  };
+  totalAmount: number;
+  mergedItems: Array<{
+    productId: string;
+    nameSnapshot: string;
+    priceSnapshot: number;
+    totalQty: number;
+    lineTotal: number;
+  }>;
+  orders: Array<{
+    orderId: string;
+    seqNo: number;
+    createdAt: string;
+    amount: number;
+    items: Array<{
+      productId: string;
+      nameSnapshot: string;
+      priceSnapshot: number;
+      qty: number;
+      lineTotal: number;
+    }>;
+  }>;
+};
+
 export type Order = {
   id: string;
   status: 'ORDERED' | 'SETTLED' | 'CANCELLED';
@@ -58,9 +112,26 @@ export type Order = {
   amount: number;
   storeId: string;
   tableId: string;
+  dinersCount?: number;
+  sessionId?: string | null;
+  table?: Table;
   createdAt: string;
   updatedAt: string;
+  settledAt?: string | null;
   items?: OrderItem[];
+};
+
+export type Feedback = {
+  id: string;
+  storeId: string;
+  tableId: string | null;
+  contact: string | null;
+  type: 'DISH' | 'SERVICE' | 'ENV' | 'OTHER';
+  content: string;
+  images: string[] | null;
+  mpUserId: string | null;
+  createdAt: string;
+  table?: Table | null;
 };
 
 export const adminApi = {
@@ -69,7 +140,13 @@ export const adminApi = {
     return data;
   },
 
-  async updateStore(req: { name: string; address?: string }) {
+  async updateStore(req: {
+    name: string;
+    address?: string;
+    businessHours?: string;
+    phone?: string;
+    spiceLabels?: Record<string, string>;
+  }) {
     const { data } = await http.put<{ store: Store }>('/admin/store', req);
     return data;
   },
@@ -157,8 +234,16 @@ export const adminApi = {
     return data;
   },
 
-  async listOrders(status?: 'ORDERED' | 'SETTLED') {
-    const { data } = await http.get<{ orders: Order[] }>('/admin/order/list', { params: status ? { status } : {} });
+  async listOrders(params?: { status?: OrderSessionStatus; startAt?: string; endAt?: string }) {
+    const { data } = await http.get<{ orders: OrderSessionRow[] }>('/admin/order/list', { params: params ?? {} });
+    return data;
+  },
+  async getOrderDetail(sessionId: string) {
+    const { data } = await http.get<OrderSessionDetail>('/admin/order/detail', { params: { sessionId } });
+    return data;
+  },
+  async settleSession(sessionId: string) {
+    const { data } = await http.put<{ ok: true }>(`/admin/session/${sessionId}/settle`);
     return data;
   },
   async getOrder(id: string) {
@@ -169,9 +254,18 @@ export const adminApi = {
     const { data } = await http.put<{ ok: true }>(`/admin/order/${id}/settle`);
     return data;
   },
+  async deleteOrder(id: string) {
+    const { data } = await http.delete<{ ok: true }>(`/admin/order/${id}`);
+    return data;
+  },
 
   async getStoreInfo(storeId: string) {
     const { data } = await http.get<{ store: Store }>(`/store/${storeId}/info`);
+    return data;
+  },
+
+  async listFeedback() {
+    const { data } = await http.get<{ feedbacks: Feedback[] }>('/admin/feedback/list');
     return data;
   }
 };

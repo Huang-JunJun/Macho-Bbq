@@ -11,6 +11,10 @@
         <text class="value">{{ tableStore.tableName || order?.tableId || '-' }}</text>
       </view>
       <view class="row">
+        <text class="label">人数</text>
+        <text class="value">{{ order?.dinersCount ? `${order?.dinersCount}人` : '-' }}</text>
+      </view>
+      <view class="row">
         <text class="label">辣度</text>
         <text class="value">{{ order?.spiceLevel || '-' }}</text>
       </view>
@@ -38,6 +42,7 @@
     </view>
 
     <view class="footer">
+      <button class="btn ghost" @click="addMore">加菜</button>
       <button class="btn" @click="goList">查看订单列表</button>
     </view>
   </view>
@@ -79,7 +84,28 @@ async function reload() {
 }
 
 function goList() {
-  uni.navigateTo({ url: '/pages/order-list/index' });
+  uni.switchTab({ url: '/pages/order-list/index' });
+}
+
+async function addMore() {
+  if (!tableStore.isReady) {
+    toast('请重新扫码开桌');
+    return;
+  }
+  try {
+    const res = await api.checkTableSession({
+      storeId: tableStore.storeId,
+      tableId: tableStore.tableId,
+      sessionId: tableStore.sessionId
+    });
+    if (!res.valid) {
+      toast('本桌已结账，请重新扫码开桌');
+      return;
+    }
+    uni.switchTab({ url: '/pages/menu/index' });
+  } catch {
+    toast('本桌已结账，请重新扫码开桌');
+  }
 }
 
 onLoad((options) => {
@@ -154,9 +180,16 @@ onShow(() => {
 }
 .footer {
   margin-top: 16rpx;
+  display: flex;
+  gap: 12rpx;
 }
 .btn {
   background: #111;
   color: #fff;
+}
+.btn.ghost {
+  background: #fff;
+  color: #111;
+  border: 1px solid #e5e5e5;
 }
 </style>

@@ -6,11 +6,15 @@ import { ConfigService } from '@nestjs/config';
 export type AdminJwtUser = {
   adminUserId: string;
   storeId: string;
+  role?: string;
+  email?: string;
 };
 
 type JwtPayload = {
   sub: string;
   storeId: string;
+  role?: string;
+  email?: string;
 };
 
 @Injectable()
@@ -24,7 +28,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<AdminJwtUser> {
-    return { adminUserId: payload.sub, storeId: payload.storeId };
+    return { adminUserId: payload.sub, storeId: payload.storeId, role: payload.role, email: payload.email };
   }
 }
-

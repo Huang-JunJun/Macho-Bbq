@@ -2,7 +2,27 @@
   <slot />
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { onLaunch, onShow } from '@dcloudio/uni-app';
+import { useTableStore } from './stores/tableStore';
+
+const tableStore = useTableStore();
+const EXPIRE_MS = 6 * 60 * 60 * 1000;
+
+function clearIfExpired() {
+  const last = Number(tableStore.lastActiveAt ?? 0);
+  if (!last) return;
+  if (Date.now() - last > EXPIRE_MS) tableStore.clear();
+}
+
+onLaunch(() => {
+  clearIfExpired();
+});
+
+onShow(() => {
+  clearIfExpired();
+});
+</script>
 
 <style>
 @import './styles/tokens.css';

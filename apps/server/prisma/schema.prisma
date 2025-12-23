@@ -20,10 +20,18 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum DiningSessionStatus {
+  ACTIVE
+  CLOSED
+}
+
 model store {
   id        String   @id @default(cuid())
   name      String
   address   String?
+  businessHours String?
+  phone     String?
+  spiceLabels Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -32,12 +40,15 @@ model store {
   categories category[]
   products   product[]
   orders     order[]
+  sessions   dining_session[]
+  feedbacks  feedback[]
 }
 
 model admin_user {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String
+  role         String   @default("ADMIN")
   storeId      String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -49,12 +60,16 @@ model table {
   id        String   @id @default(cuid())
   name      String
   isActive  Boolean  @default(true)
+  isDeleted Boolean  @default(false)
+  currentSessionId String?
   storeId   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   store  store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
   orders order[]
+  feedbacks feedback[]
+  sessions dining_session[]
 
   @@unique([storeId, name])
 }
@@ -89,6 +104,7 @@ model product {
   store    store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
   category category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   orderItems order_item[]
+  cartItems cart_item[]
 
   @@index([storeId, categoryId])
 }
@@ -101,14 +117,19 @@ model order {
   amount     Int
   storeId    String
   tableId    String
+  sessionId  String?
+  dinersCount Int       @default(1)
+  settledAt DateTime?
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 
   store store @relation(fields: [storeId], references: [id], onDelete: Cascade)
   table table @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  session dining_session? @relation(fields: [sessionId], references: [id], onDelete: Restrict)
   items order_item[]
 
   @@index([storeId, tableId, createdAt])
+  @@index([sessionId, createdAt])
 }
 
 model order_item {
@@ -123,4 +144,77 @@ model order_item {
   product product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@index([orderId])
+}
+
+model dining_session {
+  id          String              @id @default(cuid())
+  storeId     String
+  tableId     String
+  status      DiningSessionStatus @default(ACTIVE)
+  dinersCount Int
+  createdAt   DateTime            @default(now())
+  closedAt    DateTime?
+
+  store  store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  table  table  @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  orders order[]
+  cartItems cart_item[]
+
+  @@index([storeId, tableId, status, createdAt])
+}
+
+model cart_item {
+  id              String   @id @default(cuid())
+  sessionId       String
+  productId       String
+  nameSnapshot    String
+  priceSnapshot   Int
+  imageUrlSnapshot String?
+  qty             Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  session dining_session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  product product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, productId])
+  @@index([sessionId])
+}
+
+model mp_user {
+  id        String   @id @default(cuid())
+  openid    String   @unique
+  nickname  String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  feedbacks feedback[]
+}
+
+enum FeedbackType {
+  DISH
+  SERVICE
+  ENV
+  OTHER
+}
+
+model feedback {
+  id        String       @id @default(cuid())
+  storeId   String
+  tableId   String?
+  contact   String?
+  type      FeedbackType
+  content   String
+  images    Json?
+  mpUserId  String?
+  createdAt DateTime     @default(now())
+
+  store  store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  table  table?  @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  mpUser mp_user? @relation(fields: [mpUserId], references: [id], onDelete: SetNull)
+
+  @@index([storeId, createdAt])
+  @@index([tableId, createdAt])
+  @@index([mpUserId, createdAt])
 }

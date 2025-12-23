@@ -3,6 +3,8 @@ import { defineStore } from 'pinia';
 type JwtPayload = {
   sub?: string;
   storeId?: string;
+  email?: string;
+  role?: string;
   exp?: number;
 };
 
@@ -22,7 +24,9 @@ function decodeJwtPayload(token: string): JwtPayload | null {
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     token: localStorage.getItem('bbq_admin_token') ?? '',
-    storeId: localStorage.getItem('bbq_admin_store_id') ?? ''
+    storeId: localStorage.getItem('bbq_admin_store_id') ?? '',
+    email: localStorage.getItem('bbq_admin_email') ?? '',
+    role: localStorage.getItem('bbq_admin_role') ?? ''
   }),
   getters: {
     isAuthed: (s) => !!s.token
@@ -35,13 +39,22 @@ export const useAuthStore = defineStore('auth', {
       const storeId = payload?.storeId ?? '';
       this.storeId = storeId;
       if (storeId) localStorage.setItem('bbq_admin_store_id', storeId);
+      const email = payload?.email ?? '';
+      const role = payload?.role ?? '';
+      this.email = email;
+      this.role = role;
+      if (email) localStorage.setItem('bbq_admin_email', email);
+      if (role) localStorage.setItem('bbq_admin_role', role);
     },
     logout() {
       this.token = '';
       this.storeId = '';
+      this.email = '';
+      this.role = '';
       localStorage.removeItem('bbq_admin_token');
       localStorage.removeItem('bbq_admin_store_id');
+      localStorage.removeItem('bbq_admin_email');
+      localStorage.removeItem('bbq_admin_role');
     }
   }
 });
-

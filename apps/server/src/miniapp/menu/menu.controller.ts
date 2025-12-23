@@ -13,7 +13,7 @@ export class MiniMenuController {
       orderBy: [{ sort: 'asc' }, { createdAt: 'asc' }],
       include: {
         products: {
-          where: { storeId: q.storeId, isOnSale: true, isSoldOut: false },
+          where: { storeId: q.storeId, isOnSale: true },
           orderBy: [{ sort: 'asc' }, { createdAt: 'asc' }]
         }
       }

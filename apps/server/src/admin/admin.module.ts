@@ -8,6 +8,9 @@ import { AdminCategoryController } from './category/admin-category.controller';
 import { AdminProductController } from './product/admin-product.controller';
 import { AdminUploadController } from './upload/admin-upload.controller';
 import { AdminOrderController } from './order/admin-order.controller';
+import { AdminFeedbackController } from './feedback/admin-feedback.controller';
+import { AdminSessionController } from './session/admin-session.controller';
+import { AdminSessionService } from './session/admin-session.service';
 
 @Module({
   imports: [AuthModule],
@@ -18,8 +21,10 @@ import { AdminOrderController } from './order/admin-order.controller';
     AdminCategoryController,
     AdminProductController,
     AdminUploadController,
-    AdminOrderController
+    AdminOrderController,
+    AdminFeedbackController,
+    AdminSessionController
   ],
-  providers: [IsTableInStoreConstraint]
+  providers: [IsTableInStoreConstraint, AdminSessionService]
 })
 export class AdminModule {}

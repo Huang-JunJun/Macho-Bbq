@@ -15,11 +15,12 @@
           <el-tag v-else type="info">停用</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="260">
+      <el-table-column label="操作" width="320">
         <template #default="{ row }">
           <el-button size="small" @click="openEdit(row)">编辑</el-button>
           <el-button size="small" type="warning" @click="toggleActive(row)">{{ row.isActive ? '停用' : '启用' }}</el-button>
           <el-button size="small" type="primary" @click="showQrcode(row)">二维码</el-button>
+          <el-button size="small" type="danger" @click="remove(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -54,7 +55,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { adminApi, type Table } from '../api/admin';
 
 const loading = ref(false);
@@ -138,6 +139,17 @@ async function showQrcode(row: Table) {
   }
 }
 
+async function remove(row: Table) {
+  try {
+    await ElMessageBox.confirm(`删除桌台：${row.name}？`, '确认', { type: 'warning' });
+    await adminApi.deleteTable(row.id);
+    ElMessage.success('已删除');
+    await reload();
+  } catch (e: any) {
+    if (e === 'cancel') return;
+    ElMessage.error(e?.response?.data?.message ?? '删除失败');
+  }
+}
+
 onMounted(reload);
 </script>
-

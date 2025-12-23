@@ -3,9 +3,23 @@ export type ApiError = {
   message?: string;
 };
 
+function getToken() {
+  try {
+    const raw = uni.getStorageSync('bbq_mp_user_v1');
+    if (!raw) return '';
+    const parsed = JSON.parse(String(raw)) as { token?: string };
+    return String(parsed.token ?? '');
+  } catch {
+    return '';
+  }
+}
+
 export function getBaseUrl() {
-  const base = (import.meta as any)?.env?.VITE_API_BASE_URL;
-  return (base as string) || 'http://localhost:3000';
+  try {
+    const fromStorage = uni.getStorageSync('BBQ_API_BASE_URL');
+    if (fromStorage) return String(fromStorage);
+  } catch {}
+  return (import.meta.env as any).VITE_API_BASE_URL || 'http://localhost:3000';
 }
 
 export async function request<T>(opts: {
@@ -24,18 +38,24 @@ export async function request<T>(opts: {
   const finalUrl = hasQuery ? `${url}?${encodeQuery(query)}` : url;
 
   return await new Promise<T>((resolve, reject) => {
+    const token = getToken();
+    const header = { 'content-type': 'application/json', ...(opts.header ?? {}) } as Record<string, string>;
+    if (token && !header.Authorization) header.Authorization = `Bearer ${token}`;
     uni.request({
       url: finalUrl,
       method: opts.method ?? 'GET',
       data: opts.data ?? undefined,
-      header: { 'content-type': 'application/json', ...(opts.header ?? {}) },
+      header,
       success: (res) => {
         const statusCode = res.statusCode ?? 0;
         if (statusCode >= 200 && statusCode < 300) {
           resolve(res.data as T);
           return;
         }
-        reject({ statusCode, message: (res.data as any)?.message ?? 'request error' } satisfies ApiError);
+        const msg = (res.data as any)?.message;
+        const message =
+          Array.isArray(msg) ? msg.map((x) => String(x)).join('；') : msg ? String(msg) : 'request error';
+        reject({ statusCode, message } satisfies ApiError);
       },
       fail: (err) => {
         reject({ statusCode: 0, message: err?.errMsg ?? 'network error' } satisfies ApiError);

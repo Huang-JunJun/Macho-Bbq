@@ -1,5 +1,5 @@
 <template>
-  <view class="bbq-page page">
+  <view class="bbq-page page" :style="{ '--bbq-tabbar-offset': tabbarOffset, '--bbq-safe-bottom': safeBottom }">
     <view class="bbq-container header">
       <view class="header-top">
         <view class="h-left">
@@ -7,19 +7,14 @@
           <view class="meta">
             <text class="meta-item">桌号 {{ tableStore.tableName || tableStore.tableId || '-' }}</text>
             <text class="meta-dot">·</text>
-            <text class="meta-item bbq-muted">堂食扫码下单</text>
+            <text class="meta-item bbq-muted">{{ tableStore.dinersCount ? `${tableStore.dinersCount}人` : '未选择人数' }}</text>
           </view>
         </view>
-        <view class="h-right" @click="toast('开发中')">⋯</view>
-      </view>
-
-      <view class="modes">
-        <view class="mode" :class="{ on: mode === 'pickup' }" @click="mode = 'pickup'">自提</view>
-        <view class="mode" :class="{ on: mode === 'delivery' }" @click="mode = 'delivery'">外卖</view>
+        <view class="nav-right"></view>
       </view>
     </view>
 
-    <view class="content">
+    <view v-if="canOrder" class="content">
       <scroll-view class="cats" scroll-y>
         <view class="cats-inner">
           <view
@@ -50,38 +45,65 @@
               <view class="sub">
                 <text class="price">￥{{ (p.price / 100).toFixed(2) }}</text>
                 <text v-if="p.isSoldOut" class="tag">售罄</text>
-                <text v-else-if="p.isOnSale === false" class="tag">下架</text>
               </view>
             </view>
             <view class="ops">
-              <view class="op" :class="{ disabled: qtyOf(p.id) === 0 }" @click="dec(p.id)">−</view>
-              <view class="qty">{{ qtyOf(p.id) }}</view>
-              <view class="op" :class="{ disabled: p.isSoldOut }" @click="p.isSoldOut ? null : inc(p)">＋</view>
+              <template v-if="p.isSoldOut">
+                <view class="soldout-pill">售罄</view>
+              </template>
+              <template v-else>
+                <view v-if="qtyOf(p.id) === 0" class="op plus" @click="inc(p)">＋</view>
+                <view v-else class="op-group">
+                  <view class="op" @click="dec(p.id)">−</view>
+                  <view class="qty">{{ qtyOf(p.id) }}</view>
+                  <view class="op" @click="inc(p)">＋</view>
+                </view>
+              </template>
             </view>
           </view>
         </view>
       </scroll-view>
     </view>
 
-    <view class="cartbar">
+    <view v-if="canOrder" class="cartbar">
       <view class="cartbar-inner">
-        <view class="sum">
-          <view class="sum-amount">￥{{ (cart.totalAmount / 100).toFixed(2) }}</view>
-          <view class="sum-sub bbq-hint">{{ cart.totalQty }} 件</view>
+        <view class="sum" @click="openCart">
+          <view class="cart-ico">
+            <image class="cart-img" src="/static/icons/cart.svg" mode="aspectFit" />
+            <view class="cart-dot" v-if="cart.totalQty > 0">{{ cart.totalQty > 99 ? '99+' : cart.totalQty }}</view>
+          </view>
+          <view class="sum-text">
+            <view class="sum-amount">￥{{ cart.totalAmount.toFixed(2) }}</view>
+            <view class="sum-sub bbq-hint">{{ cart.totalQty }} 件</view>
+          </view>
         </view>
-        <button class="submit bbq-pill" :disabled="cart.totalQty === 0" @click="goConfirm">去下单</button>
+        <view class="submit-wrap">
+          <button class="submit bbq-pill" :disabled="cart.totalQty === 0" @click="goConfirm">去下单</button>
+        </view>
       </view>
       <view class="safe" />
+    </view>
+
+    <CartPopup v-if="canOrder" v-model="cartPopupVisible" />
+
+    <view v-if="!canOrder" class="gate">
+      <view class="gate-card">
+        <view class="gate-title">{{ sessionInvalidReason === 'SETTLED' ? '本桌已结账，请重新扫码开桌' : '请先扫码桌贴开始点单' }}</view>
+        <view class="gate-sub bbq-hint">{{ sessionInvalidReason === 'SETTLED' ? '请重新扫码选择人数后继续点单' : '扫码选择人数后才可点单' }}</view>
+        <button class="gate-btn bbq-pill" @click="goScan">扫码点单</button>
+      </view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { onShow } from '@dcloudio/uni-app';
+import { onHide, onLoad, onShow } from '@dcloudio/uni-app';
 import { api, type Category, type Product } from '../../api';
 import { useTableStore } from '../../stores/table';
-import { useCartStore } from '../../stores/cart';
+import { useCartStore } from '../../stores/cartStore';
+import CartPopup from '../../components/CartPopup.vue';
+import { scanToOrder } from '../../common/scan';
 
 const tableStore = useTableStore();
 const cart = useCartStore();
@@ -89,68 +111,191 @@ const cart = useCartStore();
 const storeName = ref('');
 const categories = ref<Category[]>([]);
 const activeCategoryId = ref('');
-const mode = ref<'pickup' | 'delivery'>('pickup');
+const cartPopupVisible = ref(false);
+const tabbarOffset = ref('0px');
+const safeBottom = ref('env(safe-area-inset-bottom)');
+const sessionValid = ref(true);
+const sessionInvalidReason = ref<'NONE' | 'SETTLED'>('NONE');
+let poller: ReturnType<typeof setInterval> | null = null;
 
 const activeProducts = computed(() => {
   const c = categories.value.find((x) => x.id === activeCategoryId.value);
-  return c?.products ?? [];
+  return (c?.products ?? []).filter((p) => p.isOnSale !== false);
 });
+
+const canOrder = computed(() => tableStore.isReady && sessionValid.value);
 
 function toast(msg: string) {
   uni.showToast({ title: msg, icon: 'none' });
-}
-
-function getDefaultStoreId() {
-  const env = (import.meta as any)?.env ?? {};
-  return String(env.VITE_DEFAULT_STORE_ID ?? '');
-}
-
-function getDefaultTableId() {
-  const env = (import.meta as any)?.env ?? {};
-  return String(env.VITE_DEFAULT_TABLE_ID ?? '');
 }
 
 function qtyOf(productId: string) {
   return cart.items[productId]?.qty ?? 0;
 }
 
-function inc(p: Product) {
-  cart.inc({ productId: p.id, name: p.name, price: p.price, imageUrl: p.imageUrl });
+async function inc(p: Product) {
+  if (!canOrder.value) return;
+  const ok = await verifySession();
+  if (!ok) return;
+  try {
+    await cart.add({ productId: p.id, name: p.name, price: p.price / 100, imageUrl: p.imageUrl });
+  } catch (e: any) {
+    toast(e?.message ?? '操作失败');
+  }
 }
 
-function dec(productId: string) {
-  cart.dec(productId);
+async function dec(productId: string) {
+  if (!canOrder.value) return;
+  const ok = await verifySession();
+  if (!ok) return;
+  try {
+    await cart.minus(productId);
+  } catch (e: any) {
+    toast(e?.message ?? '操作失败');
+  }
 }
 
 async function reload() {
-  const storeId = tableStore.storeId || getDefaultStoreId();
-  if (!storeId) {
+  const storeId = tableStore.storeId;
+  if (!storeId) return;
+  const [s, m] = await Promise.all([api.getStoreInfo(storeId), api.getMenu(storeId)]);
+  storeName.value = s.store.name;
+  categories.value = m.categories;
+  activeCategoryId.value = categories.value[0]?.id ?? '';
+
+  const metas = m.categories
+    .flatMap((c) => c.products ?? [])
+    .map((p) => ({
+      productId: p.id,
+      name: p.name,
+      price: p.price / 100,
+      imageUrl: p.imageUrl,
+      isOnSale: p.isOnSale,
+      isSoldOut: p.isSoldOut
+    }));
+  cart.updateProductMap(metas);
+}
+
+async function openCart() {
+  if (!canOrder.value) return;
+  const ok = await verifySession();
+  if (!ok) return;
+  cartPopupVisible.value = true;
+}
+
+async function goConfirm() {
+  if (!canOrder.value) return;
+  const ok = await verifySession();
+  if (!ok) return;
+  if (cart.totalQty === 0) return;
+  if (cart.hasInvalid) {
+    toast(cart.invalidMessage);
+    cartPopupVisible.value = true;
+    return;
+  }
+  uni.navigateTo({ url: `/pages/order-confirm/index?channel=DINE_IN` });
+}
+
+function goScan() {
+  scanToOrder();
+}
+
+function invalidateSession() {
+  sessionValid.value = false;
+  sessionInvalidReason.value = 'SETTLED';
+  cart.clearLocal();
+  tableStore.clear();
+  storeName.value = '';
+  categories.value = [];
+  activeCategoryId.value = '';
+  if (poller) {
+    clearInterval(poller);
+    poller = null;
+  }
+}
+
+async function verifySession() {
+  sessionValid.value = true;
+  sessionInvalidReason.value = 'NONE';
+
+  if (!tableStore.isReady) return false;
+  const storeId = tableStore.storeId;
+  const tableId = tableStore.tableId;
+  const sessionId = tableStore.sessionId;
+  if (!storeId || !tableId || !sessionId) return false;
+  try {
+    const res = await api.checkTableSession({ storeId, tableId, sessionId });
+    if (!res.valid) {
+      invalidateSession();
+      return false;
+    }
+    sessionValid.value = true;
+    return true;
+  } catch {
+    invalidateSession();
+    return false;
+  }
+}
+
+async function fetchCart() {
+  if (!tableStore.isReady) return;
+  try {
+    await cart.fetchRemote();
+  } catch (e: any) {
+    const msg = String(e?.message ?? '');
+    if (msg.includes('结账') || msg.includes('重新扫码')) {
+      invalidateSession();
+      return;
+    }
+    toast(msg || '加载失败');
+  }
+}
+
+function startPoll() {
+  if (poller) return;
+  poller = setInterval(() => {
+    if (!tableStore.isReady || !sessionValid.value) return;
+    fetchCart();
+  }, 2000);
+}
+
+function stopPoll() {
+  if (!poller) return;
+  clearInterval(poller);
+  poller = null;
+}
+
+onLoad(() => {
+  try {
+    const info: any = uni.getSystemInfoSync();
+    const p = String(info?.uniPlatform ?? info?.platform ?? '').toLowerCase();
+    const isH5 = p === 'web' || p === 'h5';
+    tabbarOffset.value = isH5 ? '50px' : '0px';
+    safeBottom.value = isH5 ? 'env(safe-area-inset-bottom)' : '0px';
+  } catch {
+    tabbarOffset.value = '0px';
+    safeBottom.value = '0px';
+  }
+  if (tableStore.isReady) reload().catch((e: any) => toast(e?.message ?? '加载失败'));
+});
+
+onShow(async () => {
+  if (!tableStore.isReady) {
+    stopPoll();
     storeName.value = '';
     categories.value = [];
     activeCategoryId.value = '';
     return;
   }
-  const [s, m] = await Promise.all([api.getStoreInfo(storeId), api.getMenu(storeId)]);
-  storeName.value = s.store.name;
-  categories.value = m.categories;
-  activeCategoryId.value = categories.value[0]?.id ?? '';
-}
-
-function goConfirm() {
-  const storeId = tableStore.storeId || getDefaultStoreId();
-  const tableId = tableStore.tableId || getDefaultTableId();
-  if (!storeId || !tableId) {
-    toast('请先配置默认桌号后下单');
-    return;
-  }
-  if (!tableStore.ready) {
-    tableStore.setTable({ storeId, tableId, tableName: tableStore.tableName || tableId });
-  }
-  uni.navigateTo({ url: '/pages/order-confirm/index' });
-}
-
-onShow(() => {
+  const ok = await verifySession();
+  if (!ok) return;
   reload().catch((e: any) => toast(e?.message ?? '加载失败'));
+  fetchCart();
+  startPoll();
+});
+
+onHide(() => {
+  stopPoll();
 });
 </script>
 
@@ -161,7 +306,7 @@ onShow(() => {
   flex-direction: column;
 }
 .header {
-  padding-bottom: 0;
+  padding-bottom: var(--bbq-space-3);
 }
 .header-top {
   display: flex;
@@ -199,32 +344,14 @@ onShow(() => {
 .meta-dot {
   color: #d1d5db;
 }
-.modes {
-  background: var(--bbq-card);
-  border: 1px solid var(--bbq-border);
-  border-radius: 999rpx;
-  padding: 6rpx;
-  display: inline-flex;
-  gap: 6rpx;
-  margin-bottom: var(--bbq-space-2);
-}
-.mode {
-  padding: 12rpx 24rpx;
-  font-size: 26rpx;
-  border-radius: 999rpx;
-  color: var(--bbq-muted);
-}
-.mode.on {
-  background: #111111;
-  color: #ffffff;
-}
 .content {
   flex: 1;
   min-height: 0;
   display: flex;
   gap: var(--bbq-space-2);
   padding: 0 var(--bbq-space-3);
-  padding-bottom: calc(220rpx + var(--bbq-tabbar-height) + var(--bbq-safe-bottom));
+  margin-top: var(--bbq-space-3);
+  padding-bottom: calc(220rpx + var(--bbq-tabbar-offset, var(--bbq-tabbar-height)) + var(--bbq-safe-bottom));
   box-sizing: border-box;
 }
 .cats {
@@ -236,6 +363,7 @@ onShow(() => {
   flex-direction: column;
   gap: 10rpx;
   padding-bottom: 10rpx;
+  width: 100%;
 }
 .cat {
   background: rgba(255, 255, 255, 0.7);
@@ -244,6 +372,11 @@ onShow(() => {
   padding: 16rpx 14rpx;
   color: var(--bbq-text);
   font-size: 26rpx;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 84rpx;
+  display: flex;
+  align-items: center;
 }
 .cat.active {
   background: #111111;
@@ -330,6 +463,11 @@ onShow(() => {
   gap: 10rpx;
   flex: 0 0 auto;
 }
+.op-group {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
 .op {
   width: 64rpx;
   height: 64rpx;
@@ -341,8 +479,8 @@ onShow(() => {
   font-size: 34rpx;
   color: #111111;
 }
-.op.disabled {
-  opacity: 0.35;
+.op.plus {
+  background: rgba(17, 17, 17, 0.08);
 }
 .qty {
   width: 44rpx;
@@ -350,11 +488,19 @@ onShow(() => {
   font-size: 28rpx;
   color: var(--bbq-text);
 }
+.soldout-pill {
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  border: 1px solid var(--bbq-border);
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 22rpx;
+  color: var(--bbq-muted);
+}
 .cartbar {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--bbq-tabbar-height) + var(--bbq-safe-bottom) + 12rpx);
+  bottom: calc(var(--bbq-tabbar-offset, var(--bbq-tabbar-height)) + var(--bbq-safe-bottom) + 12rpx);
   padding: 0 var(--bbq-space-3);
   box-sizing: border-box;
 }
@@ -368,7 +514,57 @@ onShow(() => {
   padding: 0 16rpx;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 16rpx;
+}
+.sum {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  min-width: 0;
+}
+.sum-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cart-ico {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 999rpx;
+  border: 1px solid var(--bbq-border);
+  background: #ffffff;
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cart-img {
+  width: 34rpx;
+  height: 34rpx;
+  opacity: 0.8;
+}
+.cart-dot {
+  position: absolute;
+  right: 2rpx;
+  top: 2rpx;
+  transform: translate(40%, -40%);
+  width: 30rpx;
+  height: 30rpx;
+  border-radius: 50%;
+  background: #111111;
+  color: #ffffff;
+  font-size: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.submit-wrap {
+  margin-left: auto;
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 .sum-amount {
   font-size: 36rpx;
@@ -380,16 +576,67 @@ onShow(() => {
 }
 .submit {
   height: 84rpx;
-  line-height: 84rpx;
+  line-height: 1;
   padding: 0 28rpx;
   background: #111111;
   color: #ffffff;
   font-size: 30rpx;
+  min-width: 200rpx;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.submit::after {
+  border: none;
 }
 .submit[disabled] {
   opacity: 0.45;
 }
 .safe {
   height: 0;
+}
+
+.gate {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: var(--bbq-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--bbq-space-3);
+  box-sizing: border-box;
+}
+.gate-card {
+  width: 100%;
+  background: var(--bbq-card);
+  border-radius: var(--bbq-radius-card);
+  box-shadow: var(--bbq-shadow);
+  padding: 28rpx 22rpx;
+  border: 1px solid var(--bbq-border);
+}
+.gate-title {
+  font-size: 36rpx;
+  font-weight: 900;
+  color: var(--bbq-text);
+  text-align: center;
+}
+.gate-sub {
+  margin-top: 10rpx;
+  text-align: center;
+  font-size: 26rpx;
+}
+.gate-btn {
+  margin-top: 18rpx;
+  height: 92rpx;
+  line-height: 92rpx;
+  background: #111111;
+  color: #ffffff;
+  font-size: 32rpx;
+  width: 100%;
+}
+.gate-btn::after {
+  border: none;
 }
 </style>

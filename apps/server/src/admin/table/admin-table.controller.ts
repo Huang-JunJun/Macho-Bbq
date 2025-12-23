@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Param, Post, Put, UseGuards, Body, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { CurrentAdmin } from '../../auth/current-admin.decorator';
@@ -28,7 +28,7 @@ export class AdminTableController {
   @Get()
   async list(@CurrentAdmin() admin: AdminJwtUser) {
     const tables = await this.prisma.table.findMany({
-      where: { storeId: admin.storeId },
+      where: { storeId: admin.storeId, isDeleted: false },
       orderBy: { createdAt: 'desc' }
     });
     return { tables };
@@ -60,7 +60,15 @@ export class AdminTableController {
   async remove(@CurrentAdmin() admin: AdminJwtUser, @Param('id') id: string) {
     const table = await this.prisma.table.findFirst({ where: { id, storeId: admin.storeId } });
     if (!table) throw new NotFoundException('table not found');
-    await this.prisma.table.delete({ where: { id } });
+    if (table.isDeleted) return { ok: true };
+    const activeOrders = await this.prisma.order.count({
+      where: { storeId: admin.storeId, tableId: id, status: 'ORDERED' }
+    });
+    if (activeOrders > 0) throw new BadRequestException('该桌仍有未结账订单，无法删除');
+    await this.prisma.table.update({
+      where: { id },
+      data: { isDeleted: true, isActive: false }
+    });
     return { ok: true };
   }
 
@@ -68,6 +76,7 @@ export class AdminTableController {
   async qrcode(@CurrentAdmin() admin: AdminJwtUser, @Param('id') id: string) {
     const table = await this.prisma.table.findFirst({ where: { id, storeId: admin.storeId } });
     if (!table) throw new NotFoundException('table not found');
+    if (table.isDeleted || !table.isActive) throw new BadRequestException('桌台已停用或已删除，无法生成二维码');
 
     const secret = String(this.config.get('TABLE_SIGN_SECRET') ?? 'change-me');
     const sign = signTable(admin.storeId, table.id, secret);

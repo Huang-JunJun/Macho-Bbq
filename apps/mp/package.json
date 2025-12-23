@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev:h5": "vite",
-    "build:h5": "vue-tsc -b && vite build"
+    "dev:mp-weixin": "uni -p mp-weixin",
+    "build:h5": "vue-tsc -b && vite build",
+    "build:mp-weixin": "uni build -p mp-weixin"
   },
   "dependencies": {
     "pinia": "2.1.7",

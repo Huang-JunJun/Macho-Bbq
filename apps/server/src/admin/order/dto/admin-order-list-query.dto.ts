@@ -1,13 +1,20 @@
-import { IsEnum, IsOptional } from 'class-validator';
+import { IsEnum, IsISO8601, IsOptional } from 'class-validator';
 
-export enum AdminOrderStatusFilter {
-  ORDERED = 'ORDERED',
-  SETTLED = 'SETTLED'
+export enum AdminSessionStatusFilter {
+  ACTIVE = 'ACTIVE',
+  CLOSED = 'CLOSED'
 }
 
 export class AdminOrderListQueryDto {
   @IsOptional()
-  @IsEnum(AdminOrderStatusFilter)
-  status?: AdminOrderStatusFilter;
-}
+  @IsEnum(AdminSessionStatusFilter)
+  status?: AdminSessionStatusFilter;
 
+  @IsOptional()
+  @IsISO8601()
+  startAt?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  endAt?: string;
+}

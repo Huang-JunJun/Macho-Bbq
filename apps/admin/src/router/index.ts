@@ -7,6 +7,7 @@ import CategoriesPage from '../pages/Categories.vue';
 import ProductsPage from '../pages/Products.vue';
 import OrdersPage from '../pages/Orders.vue';
 import StorePage from '../pages/Store.vue';
+import FeedbackPage from '../pages/Feedback.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -21,6 +22,7 @@ const router = createRouter({
         { path: 'categories', component: CategoriesPage },
         { path: 'products', component: ProductsPage },
         { path: 'orders', component: OrdersPage },
+        { path: 'feedback', component: FeedbackPage },
         { path: 'store', component: StorePage }
       ]
     },
@@ -40,4 +42,3 @@ router.beforeEach((to) => {
 });
 
 export default router;
-
