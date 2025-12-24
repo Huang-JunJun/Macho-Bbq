@@ -1,11 +1,14 @@
 import { Controller, Get, Param, NotFoundException, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { Roles } from '../../auth/roles.decorator';
+import { RolesGuard } from '../../auth/roles.guard';
 import { CurrentAdmin } from '../../auth/current-admin.decorator';
 import { AdminJwtUser } from '../../auth/jwt.strategy';
 import { PrismaService } from '../../prisma/prisma.service';
 import { formatDateTimeCN } from '../../common/datetime';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('OWNER')
 @Controller('admin/feedback')
 export class AdminFeedbackController {
   constructor(private prisma: PrismaService) {}
@@ -40,4 +43,3 @@ export class AdminFeedbackController {
     };
   }
 }
-

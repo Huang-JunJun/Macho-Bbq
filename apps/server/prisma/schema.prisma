@@ -14,6 +14,11 @@ enum SpiceLevel {
   HOT
 }
 
+enum AdminRole {
+  OWNER
+  STAFF
+}
+
 enum OrderStatus {
   ORDERED
   SETTLED
@@ -25,6 +30,23 @@ enum DiningSessionStatus {
   CLOSED
 }
 
+enum PrinterProvider {
+  USB_AGENT
+}
+
+enum PrintJobType {
+  KITCHEN_TICKET
+  BILL_TICKET
+  RECEIPT_TICKET
+}
+
+enum PrintJobStatus {
+  PENDING
+  PICKED
+  SENT
+  FAILED
+}
+
 model store {
   id        String   @id @default(cuid())
   name      String
@@ -32,6 +54,7 @@ model store {
   businessHours String?
   phone     String?
   spiceLabels Json?
+  autoPrintReceiptOnSettle Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -42,18 +65,24 @@ model store {
   orders     order[]
   sessions   dining_session[]
   feedbacks  feedback[]
+  tableMoveLogs table_move_log[]
+  printers printer[]
+  printJobs print_job[]
 }
 
 model admin_user {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String
-  role         String   @default("ADMIN")
+  role         AdminRole   @default(OWNER)
+  isActive     Boolean  @default(true)
   storeId      String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   store store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  tableMoveLogs table_move_log[]
+  printJobs print_job[]
 }
 
 model table {
@@ -152,6 +181,7 @@ model dining_session {
   tableId     String
   status      DiningSessionStatus @default(ACTIVE)
   dinersCount Int
+  cartVersion Int                @default(0)
   createdAt   DateTime            @default(now())
   closedAt    DateTime?
 
@@ -159,8 +189,26 @@ model dining_session {
   table  table  @relation(fields: [tableId], references: [id], onDelete: Cascade)
   orders order[]
   cartItems cart_item[]
+  printJobs print_job[]
 
   @@index([storeId, tableId, status, createdAt])
+}
+
+model table_move_log {
+  id          String   @id @default(cuid())
+  storeId     String
+  sessionId   String
+  fromTableId String
+  toTableId   String
+  operator    String
+  adminUserId String
+  createdAt   DateTime @default(now())
+
+  store store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  admin admin_user @relation(fields: [adminUserId], references: [id], onDelete: Restrict)
+
+  @@index([storeId, createdAt])
+  @@index([sessionId, createdAt])
 }
 
 model cart_item {
@@ -217,4 +265,45 @@ model feedback {
   @@index([storeId, createdAt])
   @@index([tableId, createdAt])
   @@index([mpUserId, createdAt])
+}
+
+model printer {
+  id        String   @id @default(cuid())
+  storeId   String
+  name      String
+  isActive  Boolean  @default(true)
+  provider  PrinterProvider
+  agentKey  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  printJobs print_job[]
+
+  @@index([storeId, isActive])
+}
+
+model print_job {
+  id                 String       @id @default(cuid())
+  storeId            String
+  printerId          String
+  type               PrintJobType
+  sessionId          String
+  orderId            String?
+  status             PrintJobStatus @default(PENDING)
+  content            String
+  errorMessage       String?
+  operatorAdminUserId String?
+  idempotencyKey     String?      @unique
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  store   store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  printer printer    @relation(fields: [printerId], references: [id], onDelete: Cascade)
+  session dining_session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  operator admin_user? @relation(fields: [operatorAdminUserId], references: [id], onDelete: SetNull)
+
+  @@index([storeId, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([status, createdAt])
 }

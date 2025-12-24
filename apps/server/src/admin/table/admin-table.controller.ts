@@ -1,6 +1,8 @@
 import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { Roles } from '../../auth/roles.decorator';
+import { RolesGuard } from '../../auth/roles.guard';
 import { CurrentAdmin } from '../../auth/current-admin.decorator';
 import { AdminJwtUser } from '../../auth/jwt.strategy';
 import { CreateTableDto } from './dto/create-table.dto';
@@ -9,7 +11,8 @@ import { ConfigService } from '@nestjs/config';
 import { signTable } from '../../common/crypto';
 import * as QRCode from 'qrcode';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('OWNER')
 @Controller('admin/table')
 export class AdminTableController {
   constructor(
@@ -32,6 +35,60 @@ export class AdminTableController {
       orderBy: { createdAt: 'desc' }
     });
     return { tables };
+  }
+
+  @Get('dashboard')
+  @Roles('OWNER', 'STAFF')
+  async dashboard(@CurrentAdmin() admin: AdminJwtUser) {
+    const tables = await this.prisma.table.findMany({
+      where: { storeId: admin.storeId, isDeleted: false },
+      select: { id: true, name: true, isActive: true, currentSessionId: true }
+    });
+    const sessionIds = tables.map((t) => t.currentSessionId).filter((id): id is string => Boolean(id));
+    const sessions = sessionIds.length
+      ? await this.prisma.dining_session.findMany({
+          where: { id: { in: sessionIds }, storeId: admin.storeId, status: 'ACTIVE' },
+          include: {
+            orders: {
+              where: { status: { not: 'CANCELLED' } },
+              select: { amount: true, createdAt: true },
+              orderBy: { createdAt: 'asc' }
+            },
+            table: true
+          }
+        })
+      : [];
+    const sessionMap = new Map(sessions.map((s) => [s.id, s]));
+    const rows = tables.map((t) => {
+      const session = t.currentSessionId ? sessionMap.get(t.currentSessionId) : null;
+      if (!session) {
+        return {
+          tableId: t.id,
+          tableName: t.name,
+          isEnabled: t.isActive,
+          status: 'IDLE'
+        };
+      }
+      const orders = session.orders;
+      const orderCount = orders.length;
+      const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
+      const firstOrderAt = orders[0]?.createdAt ?? session.createdAt;
+      const lastOrderAt = orders[orders.length - 1]?.createdAt ?? firstOrderAt;
+      const status = orderCount > 0 ? 'WAIT_SETTLE' : 'DINING';
+      return {
+        tableId: t.id,
+        tableName: t.name,
+        isEnabled: t.isActive,
+        status,
+        sessionId: session.id,
+        dinersCount: session.dinersCount,
+        orderCount,
+        totalAmount,
+        firstOrderAt,
+        lastOrderAt
+      };
+    });
+    return { tables: rows };
   }
 
   @Get(':id')

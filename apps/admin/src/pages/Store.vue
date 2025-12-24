@@ -23,7 +23,7 @@
       <el-form-item label="电话">
         <el-input v-model="form.phone" />
       </el-form-item>
-      <el-form-item label="辣度名称">
+      <el-form-item label="辣度">
         <el-row :gutter="12" style="width: 100%">
           <el-col :span="12">
             <el-input v-model="form.spiceLabels.NONE" placeholder="不辣" />
@@ -38,6 +38,9 @@
             <el-input v-model="form.spiceLabels.HOT" placeholder="特辣" />
           </el-col>
         </el-row>
+      </el-form-item>
+      <el-form-item label="结账自动打印">
+        <el-switch v-model="form.autoPrintReceiptOnSettle" />
       </el-form-item>
       <el-form-item>
         <el-button type="primary" :loading="saving" @click="save">保存</el-button>
@@ -60,7 +63,8 @@ const form = reactive({
   businessHours: '',
   address: '',
   phone: '',
-  spiceLabels: { NONE: '', MILD: '', MEDIUM: '', HOT: '' }
+  spiceLabels: { NONE: '', MILD: '', MEDIUM: '', HOT: '' },
+  autoPrintReceiptOnSettle: false
 });
 const loading = ref(false);
 const saving = ref(false);
@@ -82,6 +86,7 @@ async function prefill() {
     form.spiceLabels.MILD = String(labels.MILD ?? '微辣');
     form.spiceLabels.MEDIUM = String(labels.MEDIUM ?? '中辣');
     form.spiceLabels.HOT = String(labels.HOT ?? '特辣');
+    form.autoPrintReceiptOnSettle = Boolean((res.store as any).autoPrintReceiptOnSettle);
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message ?? '读取失败');
   } finally {
@@ -106,7 +111,8 @@ async function save() {
         MILD: form.spiceLabels.MILD.trim(),
         MEDIUM: form.spiceLabels.MEDIUM.trim(),
         HOT: form.spiceLabels.HOT.trim()
-      }
+      },
+      autoPrintReceiptOnSettle: form.autoPrintReceiptOnSettle
     });
     ElMessage.success('已保存');
   } catch (e: any) {

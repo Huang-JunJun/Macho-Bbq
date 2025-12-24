@@ -1,4 +1,4 @@
-import { IsObject, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsObject, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class UpdateStoreDto {
   @IsString()
@@ -23,4 +23,8 @@ export class UpdateStoreDto {
   @IsOptional()
   @IsObject()
   spiceLabels?: Record<string, string>;
+
+  @IsOptional()
+  @IsBoolean()
+  autoPrintReceiptOnSettle?: boolean;
 }

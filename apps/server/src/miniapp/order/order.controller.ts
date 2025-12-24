@@ -3,10 +3,16 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateOrderDto, OrderChannel } from './dto/create-order.dto';
 import { OrderListQueryDto } from './dto/order-list-query.dto';
 import { formatDateTimeCN } from '../../common/datetime';
+import { WsService } from '../../ws/ws.service';
+import { PrintService } from '../../print/print.service';
 
 @Controller('order')
 export class MiniOrderController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private ws: WsService,
+    private print: PrintService
+  ) {}
 
   private createOrderId(channel: OrderChannel) {
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -94,7 +100,25 @@ export class MiniOrderController {
       }
     });
 
-    await this.prisma.cart_item.deleteMany({ where: { sessionId: dto.sessionId } });
+    await this.prisma.$transaction([
+      this.prisma.cart_item.deleteMany({ where: { sessionId: dto.sessionId } }),
+      this.prisma.dining_session.update({
+        where: { id: dto.sessionId },
+        data: { cartVersion: { increment: 1 } }
+      })
+    ]);
+
+    await this.ws.emitAdmin(dto.storeId, {
+      type: 'order.created',
+      sessionId: dto.sessionId,
+      storeId: dto.storeId,
+      tableId: dto.tableId,
+      createdAt: order.createdAt
+    });
+    await this.ws.emitCartUpdated(dto.sessionId);
+    try {
+      await this.print.enqueueKitchen(order.id);
+    } catch {}
 
     return { orderId: order.id };
   }

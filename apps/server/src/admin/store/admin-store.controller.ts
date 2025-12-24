@@ -2,11 +2,14 @@ import { Body, Controller, Put, UseGuards } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { Roles } from '../../auth/roles.decorator';
+import { RolesGuard } from '../../auth/roles.guard';
 import { CurrentAdmin } from '../../auth/current-admin.decorator';
 import { AdminJwtUser } from '../../auth/jwt.strategy';
 import { UpdateStoreDto } from './dto/update-store.dto';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('OWNER')
 @Controller('admin/store')
 export class AdminStoreController {
   constructor(private prisma: PrismaService) {}
@@ -39,6 +42,9 @@ export class AdminStoreController {
       businessHours: dto.businessHours ?? null,
       phone: dto.phone ?? null
     };
+    if (dto.autoPrintReceiptOnSettle !== undefined) {
+      data.autoPrintReceiptOnSettle = dto.autoPrintReceiptOnSettle;
+    }
     if (spiceLabels === null) data.spiceLabels = Prisma.DbNull;
     if (spiceLabels && typeof spiceLabels === 'object') data.spiceLabels = spiceLabels;
     const store = await this.prisma.store.update({

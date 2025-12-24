@@ -6,6 +6,7 @@ import { useContainer } from 'class-validator';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
 import { AppModule } from './app.module';
+import { WsService } from './ws/ws.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -42,6 +43,8 @@ async function bootstrap() {
 
   const port = Number(config.get('PORT') ?? 3000);
   await app.listen(port, '0.0.0.0');
+  const wsService = app.get(WsService);
+  wsService.init(app.getHttpServer());
 }
 
 bootstrap();

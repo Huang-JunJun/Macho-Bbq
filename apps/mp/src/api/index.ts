@@ -94,6 +94,7 @@ export type CartRes = {
   items: CartItemServer[];
   totalQty: number;
   totalAmount: number;
+  cartVersion?: number;
 };
 
 export const api = {

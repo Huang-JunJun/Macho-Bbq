@@ -98,12 +98,13 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { onHide, onLoad, onShow } from '@dcloudio/uni-app';
+import { onHide, onLoad, onShow, onUnload } from '@dcloudio/uni-app';
 import { api, type Category, type Product } from '../../api';
 import { useTableStore } from '../../stores/table';
 import { useCartStore } from '../../stores/cartStore';
 import CartPopup from '../../components/CartPopup.vue';
 import { scanToOrder } from '../../common/scan';
+import { getBaseUrl } from '../../api/request';
 
 const tableStore = useTableStore();
 const cart = useCartStore();
@@ -116,7 +117,11 @@ const tabbarOffset = ref('0px');
 const safeBottom = ref('env(safe-area-inset-bottom)');
 const sessionValid = ref(true);
 const sessionInvalidReason = ref<'NONE' | 'SETTLED'>('NONE');
+const wsConnected = ref(false);
 let poller: ReturnType<typeof setInterval> | null = null;
+let socketTask: UniApp.SocketTask | null = null;
+let snapshotTimer: ReturnType<typeof setTimeout> | null = null;
+let hasSnapshot = false;
 
 const activeProducts = computed(() => {
   const c = categories.value.find((x) => x.id === activeCategoryId.value);
@@ -208,10 +213,8 @@ function invalidateSession() {
   storeName.value = '';
   categories.value = [];
   activeCategoryId.value = '';
-  if (poller) {
-    clearInterval(poller);
-    poller = null;
-  }
+  closeWs();
+  stopPoll();
 }
 
 async function verifySession() {
@@ -241,6 +244,7 @@ async function fetchCart() {
   if (!tableStore.isReady) return;
   try {
     await cart.fetchRemote();
+    hasSnapshot = true;
   } catch (e: any) {
     const msg = String(e?.message ?? '');
     if (msg.includes('结账') || msg.includes('重新扫码')) {
@@ -252,9 +256,9 @@ async function fetchCart() {
 }
 
 function startPoll() {
-  if (poller) return;
+  if (poller || wsConnected.value || socketTask) return;
   poller = setInterval(() => {
-    if (!tableStore.isReady || !sessionValid.value) return;
+    if (!tableStore.isReady || !sessionValid.value || wsConnected.value) return;
     fetchCart();
   }, 2000);
 }
@@ -263,6 +267,81 @@ function stopPoll() {
   if (!poller) return;
   clearInterval(poller);
   poller = null;
+}
+
+function buildWsUrl() {
+  const base = getBaseUrl().replace(/\/+$/, '');
+  const wsBase = base.startsWith('https') ? base.replace(/^https/, 'wss') : base.replace(/^http/, 'ws');
+  const storeId = encodeURIComponent(tableStore.storeId);
+  const tableId = encodeURIComponent(tableStore.tableId);
+  const sessionId = encodeURIComponent(tableStore.sessionId);
+  return `${wsBase}/mp/ws?storeId=${storeId}&tableId=${tableId}&sessionId=${sessionId}`;
+}
+
+function handleWsMessage(raw: any) {
+  let payload: any = null;
+  try {
+    payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    return;
+  }
+  if (!payload || !payload.type) return;
+  if (payload.type === 'cart.snapshot' || payload.type === 'cart.updated') {
+    cart.setFromServer(payload);
+    hasSnapshot = true;
+    return;
+  }
+  if (payload.type === 'session.invalid' || payload.type === 'session.settled') {
+    invalidateSession();
+    return;
+  }
+  if (payload.type === 'session.moved') {
+    if (payload.sessionId === tableStore.sessionId) {
+      tableStore.setTable({ tableId: payload.toTableId, tableName: payload.toTableName });
+      fetchCart();
+    }
+  }
+}
+
+function connectWs() {
+  if (!tableStore.isReady) return;
+  closeWs();
+  hasSnapshot = false;
+  wsConnected.value = false;
+  const url = buildWsUrl();
+  socketTask = uni.connectSocket({ url });
+  socketTask.onOpen(() => {
+    wsConnected.value = true;
+    stopPoll();
+    if (snapshotTimer) clearTimeout(snapshotTimer);
+    snapshotTimer = setTimeout(() => {
+      if (!hasSnapshot) fetchCart();
+    }, 3000);
+  });
+  socketTask.onMessage((msg) => handleWsMessage(msg.data));
+  socketTask.onError(() => {
+    wsConnected.value = false;
+    socketTask = null;
+    startPoll();
+  });
+  socketTask.onClose(() => {
+    wsConnected.value = false;
+    socketTask = null;
+    startPoll();
+  });
+}
+
+function closeWs() {
+  if (!socketTask) return;
+  try {
+    socketTask.close();
+  } catch {}
+  socketTask = null;
+  wsConnected.value = false;
+  if (snapshotTimer) {
+    clearTimeout(snapshotTimer);
+    snapshotTimer = null;
+  }
 }
 
 onLoad(() => {
@@ -281,6 +360,7 @@ onLoad(() => {
 
 onShow(async () => {
   if (!tableStore.isReady) {
+    closeWs();
     stopPoll();
     storeName.value = '';
     categories.value = [];
@@ -291,10 +371,17 @@ onShow(async () => {
   if (!ok) return;
   reload().catch((e: any) => toast(e?.message ?? '加载失败'));
   fetchCart();
+  connectWs();
   startPoll();
 });
 
 onHide(() => {
+  closeWs();
+  stopPoll();
+});
+
+onUnload(() => {
+  closeWs();
   stopPoll();
 });
 </script>

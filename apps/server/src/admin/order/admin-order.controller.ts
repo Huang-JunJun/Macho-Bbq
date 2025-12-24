@@ -1,5 +1,7 @@
 import { BadRequestException, Controller, Delete, Get, NotFoundException, Param, Put, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { Roles } from '../../auth/roles.decorator';
+import { RolesGuard } from '../../auth/roles.guard';
 import { CurrentAdmin } from '../../auth/current-admin.decorator';
 import { AdminJwtUser } from '../../auth/jwt.strategy';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -7,7 +9,8 @@ import { AdminOrderListQueryDto } from './dto/admin-order-list-query.dto';
 import { formatDateTimeCN } from '../../common/datetime';
 import { AdminSessionService } from '../session/admin-session.service';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('OWNER', 'STAFF')
 @Controller('admin/order')
 export class AdminOrderController {
   constructor(private prisma: PrismaService, private sessionService: AdminSessionService) {}
@@ -160,7 +163,7 @@ export class AdminOrderController {
     const order = await this.prisma.order.findFirst({ where: { id, storeId: admin.storeId } });
     if (!order) throw new NotFoundException('order not found');
     if (order.sessionId) {
-      return this.sessionService.settleSession(admin.storeId, order.sessionId);
+      return this.sessionService.settleSession(admin, order.sessionId);
     }
     const now = new Date();
     await this.prisma.order.update({
@@ -172,6 +175,7 @@ export class AdminOrderController {
   }
 
   @Delete(':id')
+  @Roles('OWNER')
   async remove(@CurrentAdmin() admin: AdminJwtUser, @Param('id') id: string) {
     const order = await this.prisma.order.findFirst({ where: { id, storeId: admin.storeId } });
     if (!order) throw new NotFoundException('order not found');

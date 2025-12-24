@@ -8,6 +8,9 @@ import ProductsPage from '../pages/Products.vue';
 import OrdersPage from '../pages/Orders.vue';
 import StorePage from '../pages/Store.vue';
 import FeedbackPage from '../pages/Feedback.vue';
+import TableDashboardPage from '../pages/TableDashboard.vue';
+import StaffPage from '../pages/Staff.vue';
+import PrintPage from '../pages/Print.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -19,11 +22,14 @@ const router = createRouter({
       children: [
         { path: '', redirect: '/orders' },
         { path: 'tables', component: TablesPage },
+        { path: 'table-dashboard', component: TableDashboardPage },
         { path: 'categories', component: CategoriesPage },
         { path: 'products', component: ProductsPage },
         { path: 'orders', component: OrdersPage },
         { path: 'feedback', component: FeedbackPage },
-        { path: 'store', component: StorePage }
+        { path: 'store', component: StorePage },
+        { path: 'staff', component: StaffPage },
+        { path: 'print', component: PrintPage }
       ]
     },
     { path: '/:pathMatch(.*)*', redirect: '/orders' }

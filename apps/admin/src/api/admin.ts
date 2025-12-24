@@ -16,6 +16,7 @@ export type Store = {
   businessHours?: string | null;
   phone?: string | null;
   spiceLabels?: Record<string, string> | null;
+  autoPrintReceiptOnSettle?: boolean;
 };
 
 export type Table = {
@@ -23,6 +24,7 @@ export type Table = {
   name: string;
   isActive: boolean;
   isDeleted?: boolean;
+  currentSessionId?: string | null;
   storeId: string;
 };
 
@@ -55,6 +57,58 @@ export type OrderItem = {
 };
 
 export type OrderSessionStatus = 'ACTIVE' | 'CLOSED';
+
+export type AdminRole = 'OWNER' | 'STAFF';
+
+export type Staff = {
+  id: string;
+  email: string;
+  role: AdminRole;
+  isActive: boolean;
+  storeId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TableDashboardStatus = 'IDLE' | 'DINING' | 'WAIT_SETTLE';
+
+export type TableDashboardRow = {
+  tableId: string;
+  tableName: string;
+  isEnabled: boolean;
+  status: TableDashboardStatus;
+  sessionId?: string;
+  dinersCount?: number;
+  orderCount?: number;
+  totalAmount?: number;
+  firstOrderAt?: string;
+  lastOrderAt?: string;
+};
+
+export type Printer = {
+  id: string;
+  storeId: string;
+  name: string;
+  isActive: boolean;
+  provider: 'USB_AGENT';
+  agentKey: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PrintJob = {
+  id: string;
+  type: 'KITCHEN_TICKET' | 'BILL_TICKET' | 'RECEIPT_TICKET';
+  status: 'PENDING' | 'PICKED' | 'SENT' | 'FAILED';
+  sessionId: string;
+  orderId?: string | null;
+  printerName: string;
+  tableName: string;
+  operatorEmail: string;
+  errorMessage?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export type OrderSessionRow = {
   sessionId: string;
@@ -146,6 +200,7 @@ export const adminApi = {
     businessHours?: string;
     phone?: string;
     spiceLabels?: Record<string, string>;
+    autoPrintReceiptOnSettle?: boolean;
   }) {
     const { data } = await http.put<{ store: Store }>('/admin/store', req);
     return data;
@@ -153,6 +208,10 @@ export const adminApi = {
 
   async listTables() {
     const { data } = await http.get<{ tables: Table[] }>('/admin/table');
+    return data;
+  },
+  async listTableDashboard() {
+    const { data } = await http.get<{ tables: TableDashboardRow[] }>('/admin/table/dashboard');
     return data;
   },
   async createTable(req: { name: string; isActive?: boolean }) {
@@ -258,6 +317,21 @@ export const adminApi = {
     const { data } = await http.delete<{ ok: true }>(`/admin/order/${id}`);
     return data;
   },
+  async moveSessionTable(sessionId: string, req: { fromTableId: string; toTableId: string }) {
+    const { data } = await http.post<{ ok: true; sessionId: string; fromTableId: string; toTableId: string }>(
+      `/admin/session/${sessionId}/move-table`,
+      req
+    );
+    return data;
+  },
+  async printBill(sessionId: string) {
+    const { data } = await http.post<{ ok: true }>(`/admin/session/${sessionId}/print/bill`);
+    return data;
+  },
+  async printReceipt(sessionId: string) {
+    const { data } = await http.post<{ ok: true }>(`/admin/session/${sessionId}/print/receipt`);
+    return data;
+  },
 
   async getStoreInfo(storeId: string) {
     const { data } = await http.get<{ store: Store }>(`/store/${storeId}/info`);
@@ -266,6 +340,48 @@ export const adminApi = {
 
   async listFeedback() {
     const { data } = await http.get<{ feedbacks: Feedback[] }>('/admin/feedback/list');
+    return data;
+  },
+
+  async listStaff() {
+    const { data } = await http.get<{ staff: Staff[] }>('/admin/staff/list');
+    return data;
+  },
+  async createStaff(req: { email: string; password: string }) {
+    const { data } = await http.post<{ staff: Staff }>('/admin/staff/create', req);
+    return data;
+  },
+  async enableStaff(id: string) {
+    const { data } = await http.put<{ staff: Staff }>(`/admin/staff/${id}/enable`);
+    return data;
+  },
+  async disableStaff(id: string) {
+    const { data } = await http.put<{ staff: Staff }>(`/admin/staff/${id}/disable`);
+    return data;
+  },
+  async resetStaffPassword(id: string, password: string) {
+    const { data } = await http.put<{ staff: Staff }>(`/admin/staff/${id}/reset-password`, { password });
+    return data;
+  },
+
+  async listPrinters() {
+    const { data } = await http.get<{ printers: Printer[] }>('/admin/print/printers');
+    return data;
+  },
+  async createPrinter(req: { name: string }) {
+    const { data } = await http.post<{ printer: Printer }>('/admin/print/printers', req);
+    return data;
+  },
+  async updatePrinter(id: string, req: { name?: string; isActive?: boolean }) {
+    const { data } = await http.put<{ printer: Printer }>(`/admin/print/printers/${id}`, req);
+    return data;
+  },
+  async listPrintJobs(params?: { type?: string; status?: string; startAt?: string; endAt?: string; keyword?: string }) {
+    const { data } = await http.get<{ jobs: PrintJob[] }>('/admin/print/jobs', { params: params ?? {} });
+    return data;
+  },
+  async retryPrintJob(id: string) {
+    const { data } = await http.post<{ job: PrintJob }>(`/admin/print/jobs/${id}/retry`);
     return data;
   }
 };

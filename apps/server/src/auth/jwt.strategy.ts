@@ -6,14 +6,14 @@ import { ConfigService } from '@nestjs/config';
 export type AdminJwtUser = {
   adminUserId: string;
   storeId: string;
-  role?: string;
+  role?: 'OWNER' | 'STAFF';
   email?: string;
 };
 
 type JwtPayload = {
   sub: string;
   storeId: string;
-  role?: string;
+  role?: 'OWNER' | 'STAFF';
   email?: string;
 };
 

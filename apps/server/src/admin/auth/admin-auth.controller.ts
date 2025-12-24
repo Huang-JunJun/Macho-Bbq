@@ -17,6 +17,7 @@ export class AdminAuthController {
       where: { email: dto.email }
     });
     if (!user) throw new UnauthorizedException('invalid credentials');
+    if (!user.isActive) throw new UnauthorizedException('account disabled');
     const ok = await bcrypt.compare(dto.password, user.passwordHash);
     if (!ok) throw new UnauthorizedException('invalid credentials');
 

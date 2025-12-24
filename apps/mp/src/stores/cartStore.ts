@@ -29,24 +29,8 @@ export type CartViewItem = CartItem & {
 type CartState = {
   items: Record<string, CartItem>;
   productMap: Record<string, ProductMeta>;
+  cartVersion: number;
 };
-
-const KEY = 'bbq_mp_cart_v2';
-
-function load(): Pick<CartState, 'items'> {
-  try {
-    const raw = uni.getStorageSync(KEY);
-    if (!raw) return { items: {} };
-    const parsed = JSON.parse(String(raw)) as { items?: Record<string, CartItem> };
-    return { items: parsed.items ?? {} };
-  } catch {
-    return { items: {} };
-  }
-}
-
-function persist(items: Record<string, CartItem>) {
-  uni.setStorageSync(KEY, JSON.stringify({ items }));
-}
 
 function toViewItem(item: CartItem, meta?: ProductMeta): CartViewItem {
   const isOnSale = meta ? !!meta.isOnSale : false;
@@ -65,8 +49,9 @@ function toViewItem(item: CartItem, meta?: ProductMeta): CartViewItem {
 
 export const useCartStore = defineStore('cart', {
   state: (): CartState => ({
-    ...load(),
-    productMap: {}
+    items: {},
+    productMap: {},
+    cartVersion: 0
   }),
   getters: {
     list: (s): CartViewItem[] =>
@@ -101,7 +86,7 @@ export const useCartStore = defineStore('cart', {
         };
       }
       this.items = next;
-      persist(this.items);
+      this.cartVersion = res.cartVersion ?? this.cartVersion;
     },
     async fetchRemote() {
       const tableStore = useTableStore();
@@ -170,7 +155,7 @@ export const useCartStore = defineStore('cart', {
     },
     clearLocal() {
       this.items = {};
-      persist(this.items);
+      this.cartVersion = 0;
     }
   }
 });

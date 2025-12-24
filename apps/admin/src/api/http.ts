@@ -19,6 +19,10 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (resp) => resp,
   (error) => {
+    const msg = error?.response?.data?.message;
+    if (Array.isArray(msg)) {
+      error.response.data.message = msg.map((item) => String(item)).join('；');
+    }
     const status = error?.response?.status;
     if (status === 401) {
       const auth = useAuthStore();
