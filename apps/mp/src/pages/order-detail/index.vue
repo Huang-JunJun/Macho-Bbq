@@ -16,7 +16,7 @@
       </view>
       <view class="row">
         <text class="label">辣度</text>
-        <text class="value">{{ order?.spiceLevel || '-' }}</text>
+        <text class="value">{{ order?.spiceLabel || order?.spiceKey || '-' }}</text>
       </view>
       <view class="row">
         <text class="label">备注</text>
@@ -31,7 +31,7 @@
       <view v-else>
         <view v-for="it in order.items" :key="it.id" class="line">
           <view class="lname">{{ it.nameSnapshot }}</view>
-          <view class="lqty">x{{ it.qty }}</view>
+          <view class="lqty">x{{ it.qty }}{{ it.unitSnapshot ? ` ${it.unitSnapshot}` : '' }}</view>
           <view class="lprice">￥{{ ((it.priceSnapshot * it.qty) / 100).toFixed(2) }}</view>
         </view>
         <view class="total">

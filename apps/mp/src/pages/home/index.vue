@@ -1,44 +1,50 @@
 <template>
   <view class="bbq-page">
-    <view class="bbq-container">
-      <view class="nav">
-        <view class="nav-left"></view>
-        <view class="nav-title">{{ store?.name || '猛男烧烤' }}</view>
-        <view class="nav-right" @click="toast('开发中')">⋯</view>
-      </view>
+    <view class="bbq-container page-panel">
+      <view class="page-inner">
+        <!-- <view class="nav">
+          <view class="nav-left"></view>
+          <view class="nav-title">{{ store?.name || '猛男烧烤' }}</view>
+          <view class="nav-right" @click="toast('开发中')">⋯</view>
+        </view> -->
 
-      <view class="hero">
-        <image class="hero-img" src="/static/hero.svg" mode="widthFix" />
-      </view>
-
-      <AppCard class="scan-card" padded>
-        <view class="scan-title">扫码点单</view>
-        <view class="scan-sub bbq-hint">请扫描桌贴二维码开始点单</view>
-        <button class="scan-btn bbq-pill" @click="goMenu">扫码点单</button>
-      </AppCard>
-
-      <AppCard class="store-card">
-        <view class="store-title">{{ store?.name || '猛男烧烤' }}</view>
-        <view class="store-meta">
-          <view class="store-line">
-            <text class="label">营业时间</text>
-            <text class="value">{{ store?.businessHours || '-' }}</text>
-          </view>
-          <view class="store-line">
-            <text class="label">地址</text>
-            <text class="value">{{ store?.address || '-' }}</text>
-          </view>
-          <view class="store-line">
-            <text class="label">电话</text>
-            <text class="value">{{ store?.phone || '-' }}</text>
-          </view>
+        <view class="hero">
+          <image class="hero-img" src="/static/logo.jpg" mode="widthFix" />
         </view>
-        <view class="store-actions">
-          <button class="btn-ghost bbq-pill" @click="callStore">联系商家</button>
-        </view>
-      </AppCard>
 
-      <view class="bbq-safe-bottom-pad"></view>
+        <!-- <view class="logo-wrap">
+          <image class="logo" src="@/static/logo.jpg" mode="aspectFit" />
+        </view> -->
+
+        <AppCard class="scan-card" padded>
+          <view class="scan-title">扫码点单</view>
+          <view class="scan-sub bbq-hint">请扫描桌贴二维码开始点单</view>
+          <button class="scan-btn bbq-pill" @click="goMenu">扫码点单</button>
+        </AppCard>
+
+        <AppCard class="store-card">
+          <view class="store-title">{{ store?.name || '猛男烧烤' }}</view>
+          <view class="store-meta">
+            <view class="store-line">
+              <text class="label">营业时间</text>
+              <text class="value">{{ store?.businessHours || '-' }}</text>
+            </view>
+            <view class="store-line">
+              <text class="label">地址</text>
+              <text class="value">{{ store?.address || '-' }}</text>
+            </view>
+            <view class="store-line">
+              <text class="label">电话</text>
+              <text class="value">{{ store?.phone || '-' }}</text>
+            </view>
+          </view>
+          <view class="store-actions">
+            <button class="btn-ghost bbq-pill" @click="callStore">联系商家</button>
+          </view>
+        </AppCard>
+
+        <view class="bbq-safe-bottom-pad"></view>
+      </view>
     </view>
   </view>
 </template>
@@ -119,6 +125,17 @@ onLoad(() => {
   line-height: 44rpx;
   color: var(--bbq-text);
 }
+.page-panel {
+  background: #ffffff;
+  padding: 0;
+  min-height: 100vh;
+  border-radius: 0;
+}
+.page-inner {
+  padding: var(--bbq-space-3);
+  padding-bottom: calc(var(--bbq-tabbar-height) + var(--bbq-safe-bottom));
+  box-sizing: border-box;
+}
 .hero {
   background: var(--bbq-card);
   border-radius: var(--bbq-radius-card);
@@ -128,6 +145,16 @@ onLoad(() => {
 }
 .hero-img {
   width: 100%;
+}
+.logo-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 18rpx;
+  margin-bottom: 18rpx;
+}
+.logo {
+  width: 100%;
+  height: 200rpx;
 }
 .entry-row {
   display: grid;

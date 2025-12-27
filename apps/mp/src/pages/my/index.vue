@@ -1,51 +1,53 @@
 <template>
   <view class="bbq-page">
-    <view class="bbq-container">
-      <AppCard class="profile" padded>
-        <view class="profile-row">
-          <view class="avatar">
-            <image v-if="user.avatar" class="avatar-img" :src="user.avatar" mode="aspectFill" />
+    <view class="bbq-container page-panel">
+      <view class="page-inner">
+        <AppCard class="profile" padded>
+          <view class="profile-row">
+            <view class="avatar">
+              <image v-if="user.avatar" class="avatar-img" :src="user.avatar" mode="aspectFill" />
+            </view>
+            <view class="profile-main">
+              <view class="name">{{ user.displayName }}</view>
+              <view class="sub bbq-hint">{{ user.loggedIn ? '已登录' : '未登录也可正常点单' }}</view>
+            </view>
+            <button class="login-btn bbq-pill" @click="user.loggedIn ? logout() : login()">
+              {{ user.loggedIn ? '退出登录' : '立即登录' }}
+            </button>
           </view>
-          <view class="profile-main">
-            <view class="name">{{ user.displayName }}</view>
-            <view class="sub bbq-hint">{{ user.loggedIn ? '已登录' : '未登录也可正常点单' }}</view>
-          </view>
-          <button class="login-btn bbq-pill" @click="user.loggedIn ? logout() : login()">
-            {{ user.loggedIn ? '退出登录' : '立即登录' }}
-          </button>
-        </view>
-      </AppCard>
+        </AppCard>
 
-      <AppCard class="grid" padded>
-        <view class="grid-row">
-          <view class="grid-item" @click="goOrders">
-            <image class="grid-ico" src="/static/icons/list.svg" mode="aspectFit" />
-            <view class="grid-txt">我的订单</view>
+        <AppCard class="grid" padded>
+          <view class="grid-row">
+            <view class="grid-item" @click="goOrders">
+              <image class="grid-ico" src="/static/icons/list.svg" mode="aspectFit" />
+              <view class="grid-txt">我的订单</view>
+            </view>
+            <view class="grid-item" @click="callStore">
+              <image class="grid-ico" src="/static/icons/phone.svg" mode="aspectFit" />
+              <view class="grid-txt">联系商家</view>
+            </view>
+            <view class="grid-item" @click="goStoreInfo">
+              <image class="grid-ico" src="/static/icons/store.svg" mode="aspectFit" />
+              <view class="grid-txt">门店信息</view>
+            </view>
+            <view class="grid-item" @click="goFeedback">
+              <image class="grid-ico" src="/static/icons/feedback.svg" mode="aspectFit" />
+              <view class="grid-txt">意见反馈</view>
+            </view>
+            <view class="grid-item" @click="goNotice">
+              <image class="grid-ico" src="/static/icons/notice.svg" mode="aspectFit" />
+              <view class="grid-txt">就餐须知</view>
+            </view>
+            <view class="grid-item" @click="goScan">
+              <image class="grid-ico" src="/static/icons/scan.svg" mode="aspectFit" />
+              <view class="grid-txt">扫码点单</view>
+            </view>
           </view>
-          <view class="grid-item" @click="callStore">
-            <image class="grid-ico" src="/static/icons/phone.svg" mode="aspectFit" />
-            <view class="grid-txt">联系商家</view>
-          </view>
-          <view class="grid-item" @click="goStoreInfo">
-            <image class="grid-ico" src="/static/icons/store.svg" mode="aspectFit" />
-            <view class="grid-txt">门店信息</view>
-          </view>
-          <view class="grid-item" @click="goFeedback">
-            <image class="grid-ico" src="/static/icons/feedback.svg" mode="aspectFit" />
-            <view class="grid-txt">意见反馈</view>
-          </view>
-          <view class="grid-item" @click="goNotice">
-            <image class="grid-ico" src="/static/icons/notice.svg" mode="aspectFit" />
-            <view class="grid-txt">就餐须知</view>
-          </view>
-          <view class="grid-item" @click="goScan">
-            <image class="grid-ico" src="/static/icons/scan.svg" mode="aspectFit" />
-            <view class="grid-txt">扫码点单</view>
-          </view>
-        </view>
-      </AppCard>
+        </AppCard>
 
-      <view class="bbq-safe-bottom-pad"></view>
+        <view class="bbq-safe-bottom-pad"></view>
+      </view>
     </view>
   </view>
 </template>
@@ -169,6 +171,17 @@ onShow(() => {
 <style scoped>
 .profile {
   margin-bottom: var(--bbq-space-3);
+}
+.page-panel {
+  background: #ffffff;
+  padding: 0;
+  min-height: 100vh;
+  border-radius: 0;
+}
+.page-inner {
+  padding: var(--bbq-space-3);
+  padding-bottom: calc(var(--bbq-tabbar-height) + var(--bbq-safe-bottom));
+  box-sizing: border-box;
 }
 .profile-row {
   display: flex;

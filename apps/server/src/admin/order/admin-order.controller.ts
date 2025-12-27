@@ -18,7 +18,7 @@ export class AdminOrderController {
   @Get('list')
   async list(@CurrentAdmin() admin: AdminJwtUser, @Query() q: AdminOrderListQueryDto) {
     const sessions = await this.prisma.dining_session.findMany({
-      where: { storeId: admin.storeId, ...(q.status ? { status: q.status } : {}) },
+      where: { storeId: admin.storeId, isDeleted: false, ...(q.status ? { status: q.status } : {}) },
       include: {
         table: true,
         orders: {
@@ -67,7 +67,7 @@ export class AdminOrderController {
   async detail(@CurrentAdmin() admin: AdminJwtUser, @Query('sessionId') sessionId: string) {
     if (!sessionId) throw new BadRequestException('sessionId required');
     const session = await this.prisma.dining_session.findFirst({
-      where: { id: sessionId, storeId: admin.storeId },
+      where: { id: sessionId, storeId: admin.storeId, isDeleted: false },
       include: {
         table: true,
         orders: {
@@ -78,6 +78,19 @@ export class AdminOrderController {
       }
     });
     if (!session) throw new NotFoundException('session not found');
+    const store = await this.prisma.store.findUnique({ where: { id: admin.storeId } });
+    const rawOptions = (store as any)?.spiceOptions ?? [];
+    const spiceOptions = Array.isArray(rawOptions)
+      ? rawOptions
+          .map((o: any, idx: number) => ({
+            key: String(o?.key ?? '').trim(),
+            label: String(o?.label ?? '').trim(),
+            sort: Number(o?.sort ?? idx + 1),
+            enabled: o?.enabled !== false
+          }))
+          .filter((o: any) => o.key && o.label)
+      : [];
+    const spiceMap = new Map(spiceOptions.map((o) => [o.key, o.label]));
     const orders = session.orders;
     const firstOrderAt = orders[0]?.createdAt ?? session.createdAt;
     const lastOrderAt = orders[orders.length - 1]?.createdAt ?? firstOrderAt;
@@ -115,6 +128,8 @@ export class AdminOrderController {
       seqNo: index + 1,
       createdAt: formatDateTimeCN(o.createdAt),
       amount: o.amount,
+      spiceLabel: o.spiceLabelSnapshot || (o.spiceKey ? spiceMap.get(o.spiceKey) : '') || o.spiceKey || '',
+      remark: o.remark ?? '',
       items: o.items.map((it) => ({
         productId: it.productId,
         nameSnapshot: it.nameSnapshot,

@@ -13,7 +13,7 @@ export class AdminSessionService {
   ) {}
 
   async getSession(storeId: string, sessionId: string) {
-    const session = await this.prisma.dining_session.findFirst({ where: { id: sessionId, storeId } });
+    const session = await this.prisma.dining_session.findFirst({ where: { id: sessionId, storeId, isDeleted: false } });
     if (!session) throw new NotFoundException('session not found');
     return session;
   }
@@ -71,7 +71,7 @@ export class AdminSessionService {
 
   async moveTable(admin: AdminJwtUser, sessionId: string, fromTableId: string, toTableId: string) {
     const session = await this.prisma.dining_session.findFirst({
-      where: { id: sessionId, storeId: admin.storeId },
+      where: { id: sessionId, storeId: admin.storeId, isDeleted: false },
       include: { table: true }
     });
     if (!session) throw new NotFoundException('session not found');
@@ -145,5 +145,41 @@ export class AdminSessionService {
     });
 
     return { ok: true, sessionId, fromTableId: currentTableId, toTableId: result.toTableId };
+  }
+
+  async batchDeleteSessions(admin: AdminJwtUser, sessionIds: string[]) {
+    const storeId = admin.storeId;
+    const ids = Array.from(new Set(sessionIds.map((id) => String(id).trim()).filter(Boolean)));
+    if (ids.length === 0) throw new BadRequestException('sessionIds required');
+    const sessions = await this.prisma.dining_session.findMany({
+      where: { id: { in: ids }, storeId, isDeleted: false }
+    });
+    if (sessions.length !== ids.length) throw new NotFoundException('session not found');
+    if (sessions.some((s) => s.status !== 'CLOSED')) {
+      throw new BadRequestException('存在未结账会话，无法删除');
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const orders = await tx.order.findMany({
+        where: { sessionId: { in: ids }, storeId },
+        select: { id: true }
+      });
+      const orderIds = orders.map((o) => o.id);
+      if (orderIds.length) {
+        await tx.order_item.deleteMany({ where: { orderId: { in: orderIds } } });
+        await tx.order.deleteMany({ where: { id: { in: orderIds } } });
+      }
+      await tx.cart_item.deleteMany({ where: { sessionId: { in: ids } } });
+      await tx.print_job.deleteMany({ where: { sessionId: { in: ids } } });
+      await tx.table_move_log.deleteMany({ where: { sessionId: { in: ids }, storeId } });
+      await tx.table.updateMany({ where: { storeId, currentSessionId: { in: ids } }, data: { currentSessionId: null } });
+      const updated = await tx.dining_session.updateMany({
+        where: { id: { in: ids }, storeId, isDeleted: false },
+        data: { isDeleted: true }
+      });
+      return updated.count;
+    });
+
+    return { ok: true, deletedCount: result };
   }
 }

@@ -22,6 +22,7 @@
             </view>
             <view class="sub-row">
               <view class="price">￥{{ it.price.toFixed(2) }}</view>
+              <view class="qty-unit">x{{ it.qty }}{{ it.unit ? ` ${it.unit}` : '' }}</view>
               <view class="subtotal bbq-hint">小计 ￥{{ (it.price * it.qty).toFixed(2) }}</view>
             </view>
           </view>
@@ -208,6 +209,10 @@ async function minus(productId: string) {
 .price {
   font-size: 26rpx;
   color: var(--bbq-text);
+}
+.qty-unit {
+  font-size: 24rpx;
+  color: var(--bbq-muted);
 }
 .subtotal {
   font-size: 24rpx;

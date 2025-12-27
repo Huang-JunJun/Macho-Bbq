@@ -28,6 +28,7 @@ export class AdminProductController {
         categoryId: dto.categoryId,
         name: dto.name,
         price: dto.price,
+        unit: dto.unit ?? '',
         imageUrl: dto.imageUrl ?? null,
         isOnSale: dto.isOnSale ?? true,
         isSoldOut: dto.isSoldOut ?? false,
@@ -73,6 +74,7 @@ export class AdminProductController {
         ...(dto.price === undefined ? {} : { price: dto.price }),
         ...(dto.categoryId ? { categoryId: dto.categoryId } : {}),
         ...(dto.imageUrl === undefined ? {} : { imageUrl: dto.imageUrl ?? null }),
+        ...(dto.unit === undefined ? {} : { unit: dto.unit ?? '' }),
         ...(dto.isOnSale === undefined ? {} : { isOnSale: dto.isOnSale }),
         ...(dto.isSoldOut === undefined ? {} : { isSoldOut: dto.isSoldOut }),
         ...(dto.sort === undefined ? {} : { sort: dto.sort })

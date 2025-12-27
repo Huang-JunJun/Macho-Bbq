@@ -9,7 +9,7 @@
 
     <el-form :inline="true" :model="form" style="margin-bottom: 16px">
       <el-form-item label="账号">
-        <el-input v-model="form.email" placeholder="邮箱" style="width: 220px" />
+        <el-input v-model="form.email" placeholder="账号" style="width: 220px" />
       </el-form-item>
       <el-form-item label="初始密码">
         <el-input v-model="form.password" type="password" placeholder="至少 6 位" style="width: 220px" />
@@ -63,12 +63,17 @@ async function reload() {
 }
 
 async function create() {
-  if (!form.email.trim() || !form.password.trim()) {
+  const account = form.email.trim();
+  if (!account || !form.password.trim()) {
     ElMessage.warning('请输入账号与初始密码');
     return;
   }
+  if (/[\u4e00-\u9fff]/.test(account)) {
+    ElMessage.warning('账号不能包含中文');
+    return;
+  }
   try {
-    await adminApi.createStaff({ email: form.email.trim(), password: form.password.trim() });
+    await adminApi.createStaff({ email: account, password: form.password.trim() });
     form.email = '';
     form.password = '';
     ElMessage.success('已创建');

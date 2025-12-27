@@ -7,6 +7,7 @@ import { AdminJwtUser } from '../../auth/jwt.strategy';
 import { AdminSessionService } from './admin-session.service';
 import { PrintService } from '../../print/print.service';
 import { MoveTableDto } from './dto/move-table.dto';
+import { BatchDeleteSessionDto } from './dto/batch-delete.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('admin/session')
@@ -51,5 +52,11 @@ export class AdminSessionController {
     if (!session.closedAt) throw new NotFoundException('settledAt missing');
     await this.print.enqueueReceipt(sessionId, admin.adminUserId, admin.email, 'manual');
     return { ok: true };
+  }
+
+  @Post('batch-delete')
+  @Roles('OWNER')
+  async batchDelete(@CurrentAdmin() admin: AdminJwtUser, @Body() dto: BatchDeleteSessionDto) {
+    return this.sessionService.batchDeleteSessions(admin, dto.sessionIds);
   }
 }

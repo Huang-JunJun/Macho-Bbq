@@ -1,8 +1,14 @@
 import { request } from './request';
 
-export type SpiceLevel = 'NONE' | 'MILD' | 'MEDIUM' | 'HOT';
 export type OrderStatus = 'ORDERED' | 'SETTLED' | 'CANCELLED';
 export type OrderChannel = 'DINE_IN' | 'PICKUP' | 'DELIVERY';
+
+export type SpiceOption = {
+  key: string;
+  label: string;
+  sort: number;
+  enabled: boolean;
+};
 
 export type Store = {
   id: string;
@@ -10,7 +16,7 @@ export type Store = {
   address: string | null;
   businessHours?: string | null;
   phone?: string | null;
-  spiceLabels?: Record<string, string> | null;
+  spiceOptions?: SpiceOption[] | null;
 };
 
 export type Table = {
@@ -49,6 +55,7 @@ export type Product = {
   id: string;
   name: string;
   price: number;
+  unit?: string | null;
   imageUrl: string | null;
   isOnSale: boolean;
   isSoldOut: boolean;
@@ -62,6 +69,7 @@ export type OrderItem = {
   productId: string;
   nameSnapshot: string;
   priceSnapshot: number;
+  unitSnapshot?: string | null;
   qty: number;
   orderId: string;
 };
@@ -69,7 +77,8 @@ export type OrderItem = {
 export type Order = {
   id: string;
   status: OrderStatus;
-  spiceLevel: SpiceLevel;
+  spiceKey?: string;
+  spiceLabel?: string;
   remark: string | null;
   amount: number;
   storeId: string;
@@ -127,7 +136,7 @@ export const api = {
     tableId: string;
     sessionId: string;
     dinersCount: number;
-    spiceLevel: SpiceLevel;
+    spiceKey: string;
     channel?: OrderChannel;
     remark?: string;
     items: Array<{ productId: string; qty: number }>;

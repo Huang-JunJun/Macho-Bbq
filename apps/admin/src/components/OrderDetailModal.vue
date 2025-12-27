@@ -23,6 +23,10 @@
           <div style="color: #606266">{{ order.createdAt }}</div>
           <div style="font-weight: 700">￥{{ yuan(order.amount) }}</div>
         </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; color: #606266">
+          <div>辣度：{{ order.spiceLabel || '-' }}</div>
+          <div>备注：{{ order.remark || '-' }}</div>
+        </div>
         <el-table :data="order.items" style="width: 100%; margin-top: 8px">
           <el-table-column prop="nameSnapshot" label="名称" />
           <el-table-column label="单价(元)" width="120">

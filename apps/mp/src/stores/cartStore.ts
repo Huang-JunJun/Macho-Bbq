@@ -6,6 +6,7 @@ export type CartItem = {
   productId: string;
   name: string;
   price: number;
+  unit?: string | null;
   imageUrl?: string | null;
   qty: number;
 };
@@ -14,6 +15,7 @@ export type ProductMeta = {
   productId: string;
   name: string;
   price: number;
+  unit?: string | null;
   imageUrl?: string | null;
   isOnSale: boolean;
   isSoldOut: boolean;
@@ -41,6 +43,7 @@ function toViewItem(item: CartItem, meta?: ProductMeta): CartViewItem {
     productId: item.productId,
     name: meta?.name ?? item.name,
     price: meta?.price ?? item.price,
+    unit: meta?.unit ?? item.unit ?? '',
     imageUrl: meta?.imageUrl ?? item.imageUrl ?? null,
     qty: item.qty
   };

@@ -9,9 +9,18 @@ export class MiniStoreController {
   async info(@Param('storeId') storeId: string) {
     const store = await this.prisma.store.findUnique({ where: { id: storeId } });
     if (!store) throw new NotFoundException('store not found');
-    const spiceLabels =
-      (store as any).spiceLabels ??
-      ({ NONE: '不辣', MILD: '微辣', MEDIUM: '中辣', HOT: '特辣' } as any);
-    return { store: { ...store, spiceLabels } as any };
+    const rawOptions = (store as any).spiceOptions ?? [];
+    const options = Array.isArray(rawOptions)
+      ? rawOptions
+          .map((o: any, idx: number) => ({
+            key: String(o?.key ?? '').trim(),
+            label: String(o?.label ?? '').trim(),
+            sort: Number(o?.sort ?? idx + 1),
+            enabled: o?.enabled !== false
+          }))
+          .filter((o: any) => o.key && o.label && o.enabled)
+          .sort((a: any, b: any) => a.sort - b.sort)
+      : [];
+    return { store: { ...store, spiceOptions: options } as any };
   }
 }

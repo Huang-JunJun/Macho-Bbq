@@ -7,13 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum SpiceLevel {
-  NONE
-  MILD
-  MEDIUM
-  HOT
-}
-
 enum AdminRole {
   OWNER
   STAFF
@@ -53,7 +46,7 @@ model store {
   address   String?
   businessHours String?
   phone     String?
-  spiceLabels Json?
+  spiceOptions Json @default("[]")
   autoPrintReceiptOnSettle Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -121,6 +114,7 @@ model product {
   id        String   @id @default(cuid())
   name      String
   price     Int
+  unit      String   @default("")
   imageUrl  String?
   isOnSale  Boolean  @default(true)
   isSoldOut Boolean  @default(false)
@@ -141,7 +135,8 @@ model product {
 model order {
   id         String      @id @default(cuid())
   status     OrderStatus @default(ORDERED)
-  spiceLevel SpiceLevel
+  spiceKey   String?
+  spiceLabelSnapshot String?
   remark     String?
   amount     Int
   storeId    String
@@ -167,6 +162,7 @@ model order_item {
   productId     String
   nameSnapshot  String
   priceSnapshot Int
+  unitSnapshot  String @default("")
   qty           Int
 
   order   order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -181,6 +177,7 @@ model dining_session {
   tableId     String
   status      DiningSessionStatus @default(ACTIVE)
   dinersCount Int
+  isDeleted   Boolean             @default(false)
   cartVersion Int                @default(0)
   createdAt   DateTime            @default(now())
   closedAt    DateTime?

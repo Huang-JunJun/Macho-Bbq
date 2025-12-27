@@ -9,6 +9,9 @@
 
 	    <el-table :data="products" style="width: 100%" v-loading="loading">
 	      <el-table-column prop="name" label="名称" />
+	      <el-table-column label="单位" width="120">
+	        <template #default="{ row }">{{ row.unit || '-' }}</template>
+	      </el-table-column>
 	      <el-table-column label="价格(元)" width="120">
 	        <template #default="{ row }">￥{{ yuan(row.price) }}</template>
 	      </el-table-column>
@@ -53,6 +56,9 @@
 	      <el-form-item label="价格(元)">
 	        <el-input-number v-model="form.priceYuan" :min="0" :precision="2" :step="1" />
 	      </el-form-item>
+      <el-form-item label="单位">
+        <el-input v-model="form.unit" placeholder="如 串/份/盘" />
+      </el-form-item>
       <el-form-item label="类目">
         <el-select v-model="form.categoryId" placeholder="请选择">
           <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
@@ -101,15 +107,16 @@ const categories = ref<Category[]>([]);
 const visible = ref(false);
 	const mode = ref<'create' | 'edit'>('create');
 	const editId = ref('');
-	const form = reactive({
-	  name: '',
-	  priceYuan: 0,
-	  categoryId: '',
-	  imageUrl: '',
-	  isOnSale: true,
-	  isSoldOut: false,
-	  sort: 0
-	});
+	  const form = reactive({
+	    name: '',
+	    priceYuan: 0,
+	    unit: '',
+	    categoryId: '',
+	    imageUrl: '',
+	    isOnSale: true,
+	    isSoldOut: false,
+	    sort: 0
+	  });
 
 	function categoryName(id: string) {
 	  return categories.value.find((c) => c.id === id)?.name ?? id;
@@ -139,6 +146,7 @@ async function reload() {
 	  editId.value = '';
 	  form.name = '';
 	  form.priceYuan = 0;
+	  form.unit = '';
 	  form.categoryId = categories.value[0]?.id ?? '';
 	  form.imageUrl = '';
 	  form.isOnSale = true;
@@ -152,6 +160,7 @@ async function reload() {
 	  editId.value = row.id;
 	  form.name = row.name;
 	  form.priceYuan = row.price / 100;
+	  form.unit = row.unit ?? '';
 	  form.categoryId = row.categoryId;
 	  form.imageUrl = row.imageUrl ?? '';
 	  form.isOnSale = row.isOnSale;
@@ -175,6 +184,7 @@ async function save() {
 	      await adminApi.createProduct({
 	        name: form.name.trim(),
 	        price: toCents(form.priceYuan),
+	        unit: form.unit.trim() || undefined,
 	        categoryId: form.categoryId,
 	        imageUrl: form.imageUrl || undefined,
 	        isOnSale: form.isOnSale,
@@ -185,6 +195,7 @@ async function save() {
 	      await adminApi.updateProduct(editId.value, {
 	        name: form.name.trim(),
 	        price: toCents(form.priceYuan),
+	        unit: form.unit.trim() || undefined,
 	        categoryId: form.categoryId,
 	        imageUrl: form.imageUrl || undefined,
 	        isOnSale: form.isOnSale,

@@ -44,6 +44,7 @@
               <view class="name">{{ p.name }}</view>
               <view class="sub">
                 <text class="price">￥{{ (p.price / 100).toFixed(2) }}</text>
+                <text v-if="p.unit" class="unit">/{{ p.unit }}</text>
                 <text v-if="p.isSoldOut" class="tag">售罄</text>
               </view>
             </view>
@@ -122,6 +123,9 @@ let poller: ReturnType<typeof setInterval> | null = null;
 let socketTask: UniApp.SocketTask | null = null;
 let snapshotTimer: ReturnType<typeof setTimeout> | null = null;
 let hasSnapshot = false;
+let usingGlobalSocket = false;
+let connecting = false;
+let globalSocketOpened = false;
 
 const activeProducts = computed(() => {
   const c = categories.value.find((x) => x.id === activeCategoryId.value);
@@ -174,6 +178,7 @@ async function reload() {
       productId: p.id,
       name: p.name,
       price: p.price / 100,
+      unit: p.unit ?? '',
       imageUrl: p.imageUrl,
       isOnSale: p.isOnSale,
       isSoldOut: p.isSoldOut
@@ -305,38 +310,81 @@ function handleWsMessage(raw: any) {
 
 function connectWs() {
   if (!tableStore.isReady) return;
+  if (connecting || wsConnected.value) return;
   closeWs();
   hasSnapshot = false;
   wsConnected.value = false;
+  connecting = true;
+  if (typeof uni.connectSocket !== 'function') {
+    connecting = false;
+    startPoll();
+    return;
+  }
   const url = buildWsUrl();
-  socketTask = uni.connectSocket({ url });
-  socketTask.onOpen(() => {
+  let task: any = null;
+  try {
+    task = uni.connectSocket({ url });
+    if (task && typeof task.catch === 'function') task.catch(() => {});
+  } catch {
+    connecting = false;
+    startPoll();
+    return;
+  }
+  socketTask = task && typeof task.close === 'function' ? task : null;
+  const onOpen = () => {
+    connecting = false;
     wsConnected.value = true;
+    globalSocketOpened = true;
     stopPoll();
     if (snapshotTimer) clearTimeout(snapshotTimer);
     snapshotTimer = setTimeout(() => {
       if (!hasSnapshot) fetchCart();
     }, 3000);
-  });
-  socketTask.onMessage((msg) => handleWsMessage(msg.data));
-  socketTask.onError(() => {
+  };
+  const onMessage = (msg: any) => handleWsMessage((msg as any)?.data ?? msg);
+  const onError = () => {
+    connecting = false;
     wsConnected.value = false;
+    globalSocketOpened = false;
     socketTask = null;
     startPoll();
-  });
-  socketTask.onClose(() => {
+  };
+  const onClose = () => {
+    connecting = false;
     wsConnected.value = false;
+    globalSocketOpened = false;
     socketTask = null;
     startPoll();
-  });
+  };
+  if (typeof (uni as any).onSocketOpen !== 'function') {
+    connecting = false;
+    startPoll();
+    return;
+  }
+  usingGlobalSocket = true;
+  (uni as any).onSocketOpen(onOpen);
+  (uni as any).onSocketMessage(onMessage);
+  (uni as any).onSocketError(onError);
+  (uni as any).onSocketClose(onClose);
 }
 
 function closeWs() {
-  if (!socketTask) return;
-  try {
-    socketTask.close();
-  } catch {}
+  if (usingGlobalSocket) {
+    if (typeof (uni as any).offSocketOpen === 'function') (uni as any).offSocketOpen();
+    if (typeof (uni as any).offSocketMessage === 'function') (uni as any).offSocketMessage();
+    if (typeof (uni as any).offSocketError === 'function') (uni as any).offSocketError();
+    if (typeof (uni as any).offSocketClose === 'function') (uni as any).offSocketClose();
+  }
+  if (typeof (uni as any).closeSocket === 'function' && wsConnected.value) {
+    try {
+      const res = (uni as any).closeSocket({ success() {}, fail() {}, complete() {} });
+      if (res && typeof res.catch === 'function') res.catch(() => {});
+    } catch {}
+  }
+  usingGlobalSocket = false;
+  globalSocketOpened = false;
   socketTask = null;
+  connecting = false;
   wsConnected.value = false;
   if (snapshotTimer) {
     clearTimeout(snapshotTimer);
@@ -536,6 +584,10 @@ onUnload(() => {
 .price {
   font-size: 30rpx;
   font-weight: 800;
+}
+.unit {
+  font-size: 24rpx;
+  color: var(--bbq-muted);
 }
 .tag {
   font-size: 22rpx;

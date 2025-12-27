@@ -3,8 +3,8 @@
     <el-card style="width: 380px">
       <div style="font-size: 18px; font-weight: 700; margin-bottom: 12px">后台登录</div>
       <el-form :model="form" label-width="90px" @submit.prevent>
-        <el-form-item label="邮箱">
-          <el-input v-model="form.email" placeholder="admin@example.com" />
+        <el-form-item label="账号">
+          <el-input v-model="form.email" placeholder="账号" />
         </el-form-item>
         <el-form-item label="密码">
           <el-input v-model="form.password" type="password" show-password />
@@ -35,9 +35,18 @@ const form = reactive({
 const loading = ref(false);
 
 async function onSubmit() {
+  const account = form.email.trim();
+  if (!account || !form.password.trim()) {
+    ElMessage.warning('请输入账号与密码');
+    return;
+  }
+  if (/[\u4e00-\u9fff]/.test(account)) {
+    ElMessage.warning('账号不能包含中文');
+    return;
+  }
   loading.value = true;
   try {
-    const res = await adminApi.login({ email: form.email, password: form.password });
+    const res = await adminApi.login({ email: account, password: form.password });
     auth.setToken(res.accessToken);
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/orders';
     await router.replace(redirect);
@@ -48,4 +57,3 @@ async function onSubmit() {
   }
 }
 </script>
-

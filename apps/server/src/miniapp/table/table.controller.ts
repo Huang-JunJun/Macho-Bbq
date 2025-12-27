@@ -41,7 +41,7 @@ export class MiniTableController {
     if (!store) throw new NotFoundException('store not found');
 
     const existing = await this.prisma.dining_session.findFirst({
-      where: { storeId: dto.storeId, tableId: dto.tableId, status: 'ACTIVE' },
+      where: { storeId: dto.storeId, tableId: dto.tableId, status: 'ACTIVE', isDeleted: false },
       orderBy: { createdAt: 'desc' }
     });
 
@@ -81,7 +81,7 @@ export class MiniTableController {
     });
     if (!table) return { valid: false };
 
-    const session = await this.prisma.dining_session.findFirst({ where: { id: sid, storeId: stid, tableId: tid, status: 'ACTIVE' } });
+    const session = await this.prisma.dining_session.findFirst({ where: { id: sid, storeId: stid, tableId: tid, status: 'ACTIVE', isDeleted: false } });
     if (!session) return { valid: false };
     return { valid: true };
   }

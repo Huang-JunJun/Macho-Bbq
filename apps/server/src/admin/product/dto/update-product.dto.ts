@@ -22,6 +22,11 @@ export class UpdateProductDto {
   imageUrl?: string;
 
   @IsOptional()
+  @IsString()
+  @MinLength(1)
+  unit?: string;
+
+  @IsOptional()
   @IsBoolean()
   isOnSale?: boolean;
 
@@ -34,4 +39,3 @@ export class UpdateProductDto {
   @Min(0)
   sort?: number;
 }
-

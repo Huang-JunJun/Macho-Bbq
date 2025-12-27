@@ -35,14 +35,39 @@ export class MiniOrderController {
     if (!table.currentSessionId || table.currentSessionId !== dto.sessionId) throw new BadRequestException('本桌已结账，请重新扫码开桌');
 
     const session = await this.prisma.dining_session.findFirst({
-      where: { id: dto.sessionId, storeId: dto.storeId, tableId: dto.tableId }
+      where: { id: dto.sessionId, storeId: dto.storeId, tableId: dto.tableId, isDeleted: false }
     });
     if (!session) throw new BadRequestException('请先扫码桌贴开始点单');
     if (session.status !== 'ACTIVE') throw new BadRequestException('本桌已结账，请重新扫码开桌');
 
+    const store = await this.prisma.store.findUnique({ where: { id: dto.storeId } });
+    if (!store) throw new BadRequestException('store not found');
+    const rawOptions = (store as any).spiceOptions ?? [];
+    const options = Array.isArray(rawOptions)
+      ? rawOptions
+          .map((o: any, idx: number) => ({
+            key: String(o?.key ?? '').trim(),
+            label: String(o?.label ?? '').trim(),
+            sort: Number(o?.sort ?? idx + 1),
+            enabled: o?.enabled !== false
+          }))
+          .filter((o: any) => o.key && o.label)
+      : [];
+    const fallback = [
+      { key: 'NONE', label: '不辣', sort: 1, enabled: true },
+      { key: 'MILD', label: '微辣', sort: 2, enabled: true },
+      { key: 'MEDIUM', label: '中辣', sort: 3, enabled: true },
+      { key: 'HOT', label: '特辣', sort: 4, enabled: true }
+    ];
+    const spiceOptions = options.length ? options : fallback;
+    const spiceKey = String((dto as any).spiceKey ?? (dto as any).spiceLevel ?? '').trim();
+    if (!spiceKey) throw new BadRequestException('请选择辣度');
+    const spiceOption = spiceOptions.find((o) => o.key === spiceKey && o.enabled);
+    if (!spiceOption) throw new BadRequestException('辣度选项无效');
+
     const channel = dto.channel ?? OrderChannel.DINE_IN;
     const reqItems = dto.items && dto.items.length > 0 ? dto.items : null;
-    let orderItems: Array<{ productId: string; nameSnapshot: string; priceSnapshot: number; qty: number }> = [];
+    let orderItems: Array<{ productId: string; nameSnapshot: string; priceSnapshot: number; unitSnapshot: string; qty: number }> = [];
 
     if (reqItems) {
       const productIds = reqItems.map((i) => i.productId);
@@ -59,6 +84,7 @@ export class MiniOrderController {
           productId: p.id,
           nameSnapshot: p.name,
           priceSnapshot: p.price,
+          unitSnapshot: p.unit ?? '',
           qty: i.qty
         };
       });
@@ -78,6 +104,7 @@ export class MiniOrderController {
         productId: ci.productId,
         nameSnapshot: ci.nameSnapshot,
         priceSnapshot: ci.priceSnapshot,
+        unitSnapshot: productMap.get(ci.productId)?.unit ?? '',
         qty: ci.qty
       }));
     }
@@ -92,7 +119,8 @@ export class MiniOrderController {
         tableId: dto.tableId,
         sessionId: dto.sessionId,
         dinersCount: dto.dinersCount,
-        spiceLevel: dto.spiceLevel,
+        spiceKey,
+        spiceLabelSnapshot: spiceOption.label,
         remark: dto.remark ?? null,
         amount,
         status: 'ORDERED',
@@ -133,6 +161,7 @@ export class MiniOrderController {
     return {
       orders: orders.map((o) => ({
         ...o,
+        spiceLabel: o.spiceLabelSnapshot || o.spiceKey || '',
         createdAt: formatDateTimeCN(o.createdAt),
         updatedAt: formatDateTimeCN(o.updatedAt)
       }))
@@ -149,6 +178,7 @@ export class MiniOrderController {
     return {
       order: {
         ...order,
+        spiceLabel: order.spiceLabelSnapshot || order.spiceKey || '',
         createdAt: formatDateTimeCN(order.createdAt),
         updatedAt: formatDateTimeCN(order.updatedAt)
       }

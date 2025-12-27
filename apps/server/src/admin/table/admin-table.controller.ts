@@ -47,7 +47,7 @@ export class AdminTableController {
     const sessionIds = tables.map((t) => t.currentSessionId).filter((id): id is string => Boolean(id));
     const sessions = sessionIds.length
       ? await this.prisma.dining_session.findMany({
-          where: { id: { in: sessionIds }, storeId: admin.storeId, status: 'ACTIVE' },
+          where: { id: { in: sessionIds }, storeId: admin.storeId, status: 'ACTIVE', isDeleted: false },
           include: {
             orders: {
               where: { status: { not: 'CANCELLED' } },

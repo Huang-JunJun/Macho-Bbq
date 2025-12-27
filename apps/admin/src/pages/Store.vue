@@ -23,21 +23,22 @@
       <el-form-item label="电话">
         <el-input v-model="form.phone" />
       </el-form-item>
-      <el-form-item label="辣度">
-        <el-row :gutter="12" style="width: 100%">
-          <el-col :span="12">
-            <el-input v-model="form.spiceLabels.NONE" placeholder="不辣" />
-          </el-col>
-          <el-col :span="12">
-            <el-input v-model="form.spiceLabels.MILD" placeholder="微辣" />
-          </el-col>
-          <el-col :span="12" style="margin-top: 12px">
-            <el-input v-model="form.spiceLabels.MEDIUM" placeholder="中辣" />
-          </el-col>
-          <el-col :span="12" style="margin-top: 12px">
-            <el-input v-model="form.spiceLabels.HOT" placeholder="特辣" />
-          </el-col>
-        </el-row>
+      <el-form-item label="辣度配置">
+        <div style="width: 100%">
+          <el-button size="small" @click="addSpice">新增辣度</el-button>
+          <el-table :data="spiceOptions" style="width: 100%; margin-top: 12px">
+            <el-table-column label="名称" min-width="240">
+              <template #default="{ row }">
+                <el-input v-model="row.label" placeholder="如 不辣" />
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="120">
+              <template #default="{ $index }">
+                <el-button size="small" type="danger" @click="removeSpice($index)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
       </el-form-item>
       <el-form-item label="结账自动打印">
         <el-switch v-model="form.autoPrintReceiptOnSettle" />
@@ -52,7 +53,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
-import { adminApi } from '../api/admin';
+import { adminApi, type SpiceOption } from '../api/admin';
 import { useAuthStore } from '../stores/auth';
 
 const auth = useAuthStore();
@@ -63,11 +64,33 @@ const form = reactive({
   businessHours: '',
   address: '',
   phone: '',
-  spiceLabels: { NONE: '', MILD: '', MEDIUM: '', HOT: '' },
   autoPrintReceiptOnSettle: false
 });
+const spiceOptions = ref<Array<SpiceOption & { _uid?: string }>>([]);
 const loading = ref(false);
 const saving = ref(false);
+
+function normalizeOptions(raw: any) {
+  if (Array.isArray(raw) && raw.length > 0) {
+    return raw.map((o: any, idx: number) => ({
+      key: String(o?.key ?? '').trim() || genKey(),
+      label: String(o?.label ?? '').trim(),
+      sort: Number(o?.sort ?? idx + 1) || idx + 1,
+      enabled: o?.enabled !== false
+    }));
+  }
+  return [
+    { key: genKey(), label: '不辣', sort: 1, enabled: true },
+    { key: genKey(), label: '微辣', sort: 2, enabled: true },
+    { key: genKey(), label: '中辣', sort: 3, enabled: true },
+    { key: genKey(), label: '特辣', sort: 4, enabled: true }
+  ];
+}
+
+function genKey() {
+  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `SPICE_${Date.now().toString(36).toUpperCase()}_${rand}`;
+}
 
 async function prefill() {
   if (!storeId.value) {
@@ -76,16 +99,12 @@ async function prefill() {
   }
   loading.value = true;
   try {
-    const res = await adminApi.getStoreInfo(storeId.value);
+    const res = await adminApi.getAdminStore();
     form.name = res.store.name;
     form.businessHours = (res.store.businessHours as any) ?? '';
     form.address = res.store.address ?? '';
     form.phone = (res.store.phone as any) ?? '';
-    const labels: any = (res.store as any).spiceLabels ?? {};
-    form.spiceLabels.NONE = String(labels.NONE ?? '不辣');
-    form.spiceLabels.MILD = String(labels.MILD ?? '微辣');
-    form.spiceLabels.MEDIUM = String(labels.MEDIUM ?? '中辣');
-    form.spiceLabels.HOT = String(labels.HOT ?? '特辣');
+    spiceOptions.value = normalizeOptions((res.store as any).spiceOptions ?? []);
     form.autoPrintReceiptOnSettle = Boolean((res.store as any).autoPrintReceiptOnSettle);
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message ?? '读取失败');
@@ -101,17 +120,26 @@ async function save() {
       ElMessage.warning('请输入名称');
       return;
     }
+    if (spiceOptions.value.length === 0) {
+      ElMessage.warning('至少保留一个辣度');
+      return;
+    }
+    const opts = spiceOptions.value.map((o, idx) => ({
+      key: String(o.key ?? '').trim() || genKey(),
+      label: String(o.label ?? '').trim(),
+      sort: idx + 1,
+      enabled: true
+    }));
+    if (opts.some((o) => !o.label)) {
+      ElMessage.warning('请填写辣度名称');
+      return;
+    }
     await adminApi.updateStore({
       name: form.name.trim(),
       businessHours: form.businessHours.trim() || undefined,
       address: form.address.trim() || undefined,
       phone: form.phone.trim() || undefined,
-      spiceLabels: {
-        NONE: form.spiceLabels.NONE.trim(),
-        MILD: form.spiceLabels.MILD.trim(),
-        MEDIUM: form.spiceLabels.MEDIUM.trim(),
-        HOT: form.spiceLabels.HOT.trim()
-      },
+      spiceOptions: opts,
       autoPrintReceiptOnSettle: form.autoPrintReceiptOnSettle
     });
     ElMessage.success('已保存');
@@ -123,4 +151,12 @@ async function save() {
 }
 
 onMounted(prefill);
+
+function addSpice() {
+  spiceOptions.value.push({ key: genKey(), label: '', sort: spiceOptions.value.length + 1, enabled: true });
+}
+
+function removeSpice(index: number) {
+  spiceOptions.value.splice(index, 1);
+}
 </script>

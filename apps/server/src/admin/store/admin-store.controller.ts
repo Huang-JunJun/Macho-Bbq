@@ -1,5 +1,4 @@
-import { Body, Controller, Put, UseGuards } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { BadRequestException, Body, Controller, Get, NotFoundException, Put, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { Roles } from '../../auth/roles.decorator';
@@ -14,28 +13,36 @@ import { UpdateStoreDto } from './dto/update-store.dto';
 export class AdminStoreController {
   constructor(private prisma: PrismaService) {}
 
-  private sanitizeSpiceLabels(input?: Record<string, string>) {
-    if (!input) return undefined;
-    const pick = (k: string) => {
-      const v = input[k];
-      if (typeof v !== 'string') return undefined;
-      const s = v.trim();
-      return s ? s : undefined;
-    };
-    const res = {
-      NONE: pick('NONE'),
-      MILD: pick('MILD'),
-      MEDIUM: pick('MEDIUM'),
-      HOT: pick('HOT')
-    };
-    const hasAny = Object.values(res).some(Boolean);
-    if (!hasAny) return null;
-    return res;
+  private sanitizeSpiceOptions(input?: Array<{ key: string; label: string; sort: number; enabled: boolean }>) {
+    if (input === undefined) return undefined;
+    if (!Array.isArray(input)) throw new BadRequestException('辣度配置格式不正确');
+    const seen = new Set<string>();
+    const list = input.map((raw, idx) => {
+      const key = String((raw as any)?.key ?? '').trim();
+      const label = String((raw as any)?.label ?? '').trim();
+      if (!key) throw new BadRequestException('辣度 key 不能为空');
+      if (!label) throw new BadRequestException('辣度名称不能为空');
+      if (seen.has(key)) throw new BadRequestException('辣度 key 重复');
+      seen.add(key);
+      const sort = Number((raw as any)?.sort ?? idx + 1);
+      if (!Number.isFinite(sort)) throw new BadRequestException('辣度排序必须为数字');
+      const enabled = (raw as any)?.enabled === false ? false : true;
+      return { key, label, sort, enabled };
+    });
+    if (!list.some((o) => o.enabled)) throw new BadRequestException('至少启用一个辣度');
+    return list.sort((a, b) => a.sort - b.sort);
+  }
+
+  @Get()
+  async get(@CurrentAdmin() admin: AdminJwtUser) {
+    const store = await this.prisma.store.findUnique({ where: { id: admin.storeId } });
+    if (!store) throw new NotFoundException('store not found');
+    return { store };
   }
 
   @Put()
   async update(@CurrentAdmin() admin: AdminJwtUser, @Body() dto: UpdateStoreDto) {
-    const spiceLabels = this.sanitizeSpiceLabels(dto.spiceLabels);
+    const spiceOptions = this.sanitizeSpiceOptions(dto.spiceOptions);
     const data: Record<string, unknown> = {
       name: dto.name,
       address: dto.address ?? null,
@@ -45,8 +52,7 @@ export class AdminStoreController {
     if (dto.autoPrintReceiptOnSettle !== undefined) {
       data.autoPrintReceiptOnSettle = dto.autoPrintReceiptOnSettle;
     }
-    if (spiceLabels === null) data.spiceLabels = Prisma.DbNull;
-    if (spiceLabels && typeof spiceLabels === 'object') data.spiceLabels = spiceLabels;
+    if (spiceOptions) data.spiceOptions = spiceOptions;
     const store = await this.prisma.store.update({
       where: { id: admin.storeId },
       data

@@ -15,7 +15,7 @@
           <text class="lname-text">{{ it.name }}</text>
           <text v-if="it.statusTag" class="tag">{{ it.statusTag }}</text>
         </view>
-        <view class="lqty">x{{ it.qty }}</view>
+        <view class="lqty">x{{ it.qty }}{{ it.unit ? ` ${it.unit}` : '' }}</view>
         <view class="lprice">￥{{ (it.price * it.qty).toFixed(2) }}</view>
       </view>
       <view class="total">
@@ -30,21 +30,21 @@
       <view class="spices">
         <view
           v-for="s in spiceOptions"
-          :key="s.value"
+          :key="s.key"
           class="spice"
-          :class="{ active: spiceLevel === s.value }"
-          @click="spiceLevel = s.value"
+          :class="{ active: spiceKey === s.key }"
+          @click="spiceKey = s.key"
         >
           {{ s.label }}
         </view>
       </view>
-      <view v-if="!spiceLevel" class="warn">请选择辣度后才能提交</view>
+      <view v-if="!spiceKey" class="warn">请选择辣度后才能提交</view>
       <view class="section-title" style="margin-top: 12rpx">备注</view>
       <input v-model="remark" class="input" placeholder="可选" />
     </view>
 
     <view class="footer">
-      <button class="btn" :disabled="submitting || cart.totalQty === 0 || !spiceLevel || cart.hasInvalid" @click="submit">提交订单</button>
+      <button class="btn" :disabled="submitting || cart.totalQty === 0 || !spiceKey || cart.hasInvalid" @click="submit">提交订单</button>
       <button v-if="cart.hasInvalid" class="btn ghost" @click="goMenu">返回点单移除</button>
     </view>
   </view>
@@ -53,7 +53,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
-import { api, type OrderChannel, type SpiceLevel } from '../../api';
+import { api, type OrderChannel, type SpiceOption } from '../../api';
 import { useTableStore } from '../../stores/table';
 import { useCartStore } from '../../stores/cartStore';
 import { useOrderStore } from '../../stores/order';
@@ -62,14 +62,8 @@ const tableStore = useTableStore();
 const cart = useCartStore();
 const orderStore = useOrderStore();
 
-const spiceLabels = ref<Record<string, string>>({ NONE: '不辣', MILD: '微辣', MEDIUM: '中辣', HOT: '特辣' });
-const spiceOptions = ref<Array<{ value: SpiceLevel; label: string }>>([
-  { value: 'NONE', label: '不辣' },
-  { value: 'MILD', label: '微辣' },
-  { value: 'MEDIUM', label: '中辣' },
-  { value: 'HOT', label: '特辣' }
-]);
-const spiceLevel = ref<SpiceLevel | ''>('');
+const spiceOptions = ref<SpiceOption[]>([]);
+const spiceKey = ref('');
 const remark = ref('');
 const submitting = ref(false);
 const channel = ref<OrderChannel>('DINE_IN');
@@ -118,21 +112,27 @@ async function loadSpiceLabels() {
   if (!storeId) return;
   try {
     const res = await api.getStoreInfo(storeId);
-    const labels = (res.store as any).spiceLabels ?? null;
-    if (labels && typeof labels === 'object') {
-      spiceLabels.value = {
-        NONE: String(labels.NONE ?? '不辣'),
-        MILD: String(labels.MILD ?? '微辣'),
-        MEDIUM: String(labels.MEDIUM ?? '中辣'),
-        HOT: String(labels.HOT ?? '特辣')
-      };
-      spiceOptions.value = [
-        { value: 'NONE', label: spiceLabels.value.NONE },
-        { value: 'MILD', label: spiceLabels.value.MILD },
-        { value: 'MEDIUM', label: spiceLabels.value.MEDIUM },
-        { value: 'HOT', label: spiceLabels.value.HOT }
-      ];
-    }
+    const raw = (res.store as any).spiceOptions ?? [];
+    const list = Array.isArray(raw)
+      ? raw
+          .map((o: any, idx: number) => ({
+            key: String(o?.key ?? '').trim(),
+            label: String(o?.label ?? '').trim(),
+            sort: Number(o?.sort ?? idx + 1),
+            enabled: o?.enabled !== false
+          }))
+          .filter((o: any) => o.key && o.label && o.enabled)
+          .sort((a: any, b: any) => a.sort - b.sort)
+      : [];
+    spiceOptions.value =
+      list.length > 0
+        ? list
+        : [
+            { key: 'NONE', label: '不辣', sort: 1, enabled: true },
+            { key: 'MILD', label: '微辣', sort: 2, enabled: true },
+            { key: 'MEDIUM', label: '中辣', sort: 3, enabled: true },
+            { key: 'HOT', label: '特辣', sort: 4, enabled: true }
+          ];
   } catch {}
 }
 
@@ -145,7 +145,7 @@ async function submit() {
   const tableId = tableStore.tableId;
   const sessionId = tableStore.sessionId;
   const dinersCount = tableStore.dinersCount;
-  if (!spiceLevel.value) {
+  if (!spiceKey.value) {
     toast('请选择辣度');
     return;
   }
@@ -166,7 +166,7 @@ async function submit() {
       sessionId,
       dinersCount,
       channel: channel.value,
-      spiceLevel: spiceLevel.value as SpiceLevel,
+      spiceKey: spiceKey.value,
       remark: remark.value.trim() || undefined,
       items: cart.validList.map((i) => ({ productId: i.productId, qty: i.qty }))
     });

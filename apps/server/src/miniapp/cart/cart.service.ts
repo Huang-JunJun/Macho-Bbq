@@ -20,7 +20,7 @@ export class MiniCartService {
     }
 
     const session = await this.prisma.dining_session.findFirst({
-      where: { id: params.sessionId, storeId: params.storeId, tableId: params.tableId, status: 'ACTIVE' }
+      where: { id: params.sessionId, storeId: params.storeId, tableId: params.tableId, status: 'ACTIVE', isDeleted: false }
     });
     if (!session) throw new BadRequestException('本桌已结账，请重新扫码开桌');
     return session;

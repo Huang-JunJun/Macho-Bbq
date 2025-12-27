@@ -1,4 +1,4 @@
-import { IsBoolean, IsObject, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class UpdateStoreDto {
   @IsString()
@@ -21,8 +21,8 @@ export class UpdateStoreDto {
   phone?: string;
 
   @IsOptional()
-  @IsObject()
-  spiceLabels?: Record<string, string>;
+  @IsArray()
+  spiceOptions?: Array<{ key: string; label: string; sort: number; enabled: boolean }>;
 
   @IsOptional()
   @IsBoolean()

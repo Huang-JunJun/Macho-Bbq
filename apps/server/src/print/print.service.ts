@@ -91,7 +91,8 @@ export class PrintService {
     lines.push('-------------------------------');
     lines.push(`本次合计：${this.formatAmount(order.amount)}`);
     if (order.remark) lines.push(`备注：${order.remark}`);
-    lines.push(`辣度：${order.spiceLevel}`);
+    const spiceLabel = (order as any).spiceLabelSnapshot || (order as any).spiceKey || '';
+    if (spiceLabel) lines.push(`辣度：${spiceLabel}`);
     return { content: this.buildLines(lines), storeId: order.storeId, sessionId: order.sessionId };
   }
 

@@ -17,10 +17,12 @@
           style="width: 360px"
         />
         <el-button @click="reload">刷新</el-button>
+        <el-button v-if="isOwner" type="danger" :disabled="selectedIds.length === 0" @click="batchRemove">批量删除</el-button>
       </div>
     </template>
 
-    <el-table :data="orders" style="width: 100%" v-loading="loading">
+    <el-table :data="orders" style="width: 100%" v-loading="loading" @selection-change="onSelectionChange">
+      <el-table-column v-if="isOwner" type="selection" width="50" />
       <el-table-column label="桌台" min-width="160">
         <template #default="{ row }">{{ row.tableName || row.tableId }}</template>
       </el-table-column>
@@ -44,6 +46,7 @@
       <el-table-column label="操作" width="160">
         <template #default="{ row }">
           <el-button size="small" @click="openDetail(row.sessionId)">详情</el-button>
+          <el-button v-if="isOwner" size="small" type="danger" @click="removeOne(row.sessionId)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -58,8 +61,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue';
-import { ElMessage } from 'element-plus';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { adminApi, type OrderSessionRow, type OrderSessionStatus } from '../api/admin';
 import { adminWs } from '../common/ws';
 import { useAuthStore } from '../stores/auth';
@@ -74,6 +77,8 @@ const detailVisible = ref(false);
 const detailSessionId = ref<string | null>(null);
 const detailRef = ref<InstanceType<typeof OrderDetailModal> | null>(null);
 const auth = useAuthStore();
+const selectedIds = ref<string[]>([]);
+const isOwner = computed(() => auth.role === 'OWNER');
 let refreshTimer: number | null = null;
 let detailRefreshTimer: number | null = null;
 const wsHandler = (payload: any) => {
@@ -99,6 +104,7 @@ async function reload() {
       endAt: endAt ? endAt.toISOString() : undefined
     });
     orders.value = res.orders;
+    selectedIds.value = selectedIds.value.filter((id) => res.orders.some((o) => o.sessionId === id));
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message ?? '加载失败');
   } finally {
@@ -176,5 +182,34 @@ function handleSettled() {
 function handleMoved() {
   reload();
   refreshDetail();
+}
+
+function onSelectionChange(rows: OrderSessionRow[]) {
+  selectedIds.value = rows.map((r) => r.sessionId);
+}
+
+async function removeOne(sessionId: string) {
+  try {
+    await ElMessageBox.confirm('确认删除该会话订单？', '确认', { type: 'warning' });
+    await adminApi.batchDeleteSessions([sessionId]);
+    ElMessage.success('已删除');
+    await reload();
+  } catch (e: any) {
+    if (e === 'cancel') return;
+    ElMessage.error(e?.response?.data?.message ?? '删除失败');
+  }
+}
+
+async function batchRemove() {
+  if (selectedIds.value.length === 0) return;
+  try {
+    await ElMessageBox.confirm(`确认删除 ${selectedIds.value.length} 个会话订单？`, '确认', { type: 'warning' });
+    await adminApi.batchDeleteSessions(selectedIds.value);
+    ElMessage.success('已删除');
+    await reload();
+  } catch (e: any) {
+    if (e === 'cancel') return;
+    ElMessage.error(e?.response?.data?.message ?? '删除失败');
+  }
 }
 </script>

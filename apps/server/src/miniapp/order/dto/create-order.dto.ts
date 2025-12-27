@@ -12,7 +12,6 @@ import {
   ValidateNested,
   ValidateIf
 } from 'class-validator';
-import { SpiceLevel } from '../../../common/enums';
 import { IsTableInStore } from '../../../common/validators/is-table-in-store.validator';
 
 export enum OrderChannel {
@@ -51,8 +50,15 @@ export class CreateOrderDto {
   @Max(20)
   dinersCount!: number;
 
-  @IsEnum(SpiceLevel)
-  spiceLevel!: SpiceLevel;
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  spiceKey?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  spiceLevel?: string;
 
   @IsOptional()
   @IsEnum(OrderChannel)

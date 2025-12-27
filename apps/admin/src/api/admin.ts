@@ -15,8 +15,15 @@ export type Store = {
   address: string | null;
   businessHours?: string | null;
   phone?: string | null;
-  spiceLabels?: Record<string, string> | null;
+  spiceOptions?: SpiceOption[] | null;
   autoPrintReceiptOnSettle?: boolean;
+};
+
+export type SpiceOption = {
+  key: string;
+  label: string;
+  sort: number;
+  enabled: boolean;
 };
 
 export type Table = {
@@ -39,6 +46,7 @@ export type Product = {
   id: string;
   name: string;
   price: number;
+  unit?: string | null;
   imageUrl: string | null;
   isOnSale: boolean;
   isSoldOut: boolean;
@@ -148,6 +156,8 @@ export type OrderSessionDetail = {
     seqNo: number;
     createdAt: string;
     amount: number;
+    spiceLabel?: string;
+    remark?: string;
     items: Array<{
       productId: string;
       nameSnapshot: string;
@@ -161,7 +171,8 @@ export type OrderSessionDetail = {
 export type Order = {
   id: string;
   status: 'ORDERED' | 'SETTLED' | 'CANCELLED';
-  spiceLevel: 'NONE' | 'MILD' | 'MEDIUM' | 'HOT';
+  spiceKey?: string;
+  spiceLabel?: string;
   remark: string | null;
   amount: number;
   storeId: string;
@@ -199,10 +210,15 @@ export const adminApi = {
     address?: string;
     businessHours?: string;
     phone?: string;
-    spiceLabels?: Record<string, string>;
+    spiceOptions?: SpiceOption[];
     autoPrintReceiptOnSettle?: boolean;
   }) {
     const { data } = await http.put<{ store: Store }>('/admin/store', req);
+    return data;
+  },
+
+  async getAdminStore() {
+    const { data } = await http.get<{ store: Store }>('/admin/store');
     return data;
   },
 
@@ -256,6 +272,7 @@ export const adminApi = {
     name: string;
     price: number;
     categoryId: string;
+    unit?: string;
     imageUrl?: string;
     isOnSale?: boolean;
     isSoldOut?: boolean;
@@ -270,6 +287,7 @@ export const adminApi = {
       name?: string;
       price?: number;
       categoryId?: string;
+      unit?: string;
       imageUrl?: string;
       isOnSale?: boolean;
       isSoldOut?: boolean;
@@ -281,6 +299,10 @@ export const adminApi = {
   },
   async deleteProduct(id: string) {
     const { data } = await http.delete<{ ok: true }>(`/admin/product/${id}`);
+    return data;
+  },
+  async batchDeleteSessions(sessionIds: string[]) {
+    const { data } = await http.post<{ ok: true; deletedCount: number }>(`/admin/session/batch-delete`, { sessionIds });
     return data;
   },
 

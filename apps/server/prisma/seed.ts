@@ -12,7 +12,12 @@ async function main() {
       address: '美兰区琼东北街附近',
       businessHours: '18:00-次日 01:45',
       phone: '15595767778',
-      spiceLabels: { NONE: '不辣', MILD: '微辣', MEDIUM: '中辣', HOT: '特辣' } as any
+      spiceOptions: [
+        { key: 'NONE', label: '不辣', sort: 1, enabled: true },
+        { key: 'MILD', label: '微辣', sort: 2, enabled: true },
+        { key: 'MEDIUM', label: '中辣', sort: 3, enabled: true },
+        { key: 'HOT', label: '特辣', sort: 4, enabled: true }
+      ] as any
     },
     create: {
       id: 'store_demo',
@@ -20,7 +25,12 @@ async function main() {
       address: '美兰区琼东北街附近',
       businessHours: '18:00-次日 01:45',
       phone: '15595767778',
-      spiceLabels: { NONE: '不辣', MILD: '微辣', MEDIUM: '中辣', HOT: '特辣' } as any
+      spiceOptions: [
+        { key: 'NONE', label: '不辣', sort: 1, enabled: true },
+        { key: 'MILD', label: '微辣', sort: 2, enabled: true },
+        { key: 'MEDIUM', label: '中辣', sort: 3, enabled: true },
+        { key: 'HOT', label: '特辣', sort: 4, enabled: true }
+      ] as any
     }
   });
 
@@ -73,6 +83,7 @@ async function main() {
     update: {
       name: '牛肉串',
       price: 1200,
+      unit: '串',
       imageUrl: null,
       isOnSale: true,
       isSoldOut: false,
@@ -84,6 +95,7 @@ async function main() {
       id: 'prod_beef_1',
       name: '牛肉串',
       price: 1200,
+      unit: '串',
       imageUrl: null,
       isOnSale: true,
       isSoldOut: false,
@@ -98,6 +110,7 @@ async function main() {
     update: {
       name: '玉米',
       price: 600,
+      unit: '根',
       imageUrl: null,
       isOnSale: true,
       isSoldOut: false,
@@ -109,6 +122,7 @@ async function main() {
       id: 'prod_corn_1',
       name: '玉米',
       price: 600,
+      unit: '根',
       imageUrl: null,
       isOnSale: true,
       isSoldOut: false,

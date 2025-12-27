@@ -19,6 +19,11 @@ export class CreateProductDto {
   imageUrl?: string;
 
   @IsOptional()
+  @IsString()
+  @MinLength(1)
+  unit?: string;
+
+  @IsOptional()
   @IsBoolean()
   isOnSale?: boolean;
 
@@ -31,4 +36,3 @@ export class CreateProductDto {
   @Min(0)
   sort?: number;
 }
-
