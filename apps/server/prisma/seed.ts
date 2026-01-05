@@ -52,7 +52,7 @@ async function main() {
     where: { storeId_key: { storeId: store.id, key: 'OWNER' } },
     update: { name: '店长', menuKeys: allMenuKeys as any },
     create: { storeId: store.id, name: '店长', key: 'OWNER', menuKeys: allMenuKeys as any }
-  });()
+  });
 
   const staffRole = await prisma.role.upsert({
     where: { storeId_key: { storeId: store.id, key: 'STAFF' } },
