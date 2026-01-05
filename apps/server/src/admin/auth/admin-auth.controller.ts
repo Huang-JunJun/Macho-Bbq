@@ -16,10 +16,10 @@ export class AdminAuthController {
     const user = await this.prisma.admin_user.findUnique({
       where: { email: dto.email }
     });
-    if (!user) throw new UnauthorizedException('invalid credentials');
-    if (!user.isActive) throw new UnauthorizedException('account disabled');
+    if (!user) throw new UnauthorizedException('账号或密码错误');
+    if (!user.isActive) throw new UnauthorizedException('账号已被禁用');
     const ok = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!ok) throw new UnauthorizedException('invalid credentials');
+    if (!ok) throw new UnauthorizedException('账号或密码错误');
 
     const accessToken = await this.jwt.signAsync({ sub: user.id, storeId: user.storeId, role: user.role, email: user.email });
     return { accessToken };

@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { useMenuStore } from './menu';
 
 type JwtPayload = {
   sub?: string;
@@ -55,6 +56,7 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('bbq_admin_store_id');
       localStorage.removeItem('bbq_admin_email');
       localStorage.removeItem('bbq_admin_role');
+      useMenuStore().reset();
     }
   }
 });

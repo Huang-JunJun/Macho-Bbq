@@ -35,7 +35,40 @@
       <el-table-column prop="sort" label="排序" width="100" />
       <el-table-column label="图片" width="120">
         <template #default="{ row }">
-          <el-image v-if="row.imageUrl" :src="row.imageUrl" style="width: 60px; height: 60px" fit="cover" />
+          <el-image v-if="row.imageUrl" :src="resolvePublicUrl(row.imageUrl)" style="width: 60px; height: 60px" fit="cover">
+            <template #placeholder>
+              <div
+                style="
+                  width: 60px;
+                  height: 60px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: #909399;
+                  font-size: 12px;
+                  border: 1px solid #ebeef5;
+                "
+              >
+                加载中
+              </div>
+            </template>
+            <template #error>
+              <div
+                style="
+                  width: 60px;
+                  height: 60px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: #909399;
+                  font-size: 12px;
+                  border: 1px solid #ebeef5;
+                "
+              >
+                加载失败
+              </div>
+            </template>
+          </el-image>
           <span v-else style="color: #909399">无</span>
         </template>
       </el-table-column>
@@ -82,7 +115,40 @@
         </div>
       </el-form-item>
       <el-form-item v-if="form.imageUrl" label="预览">
-        <el-image :src="form.imageUrl" style="width: 120px; height: 120px" fit="cover" />
+        <el-image :src="resolvePublicUrl(form.imageUrl)" style="width: 120px; height: 120px" fit="cover">
+          <template #placeholder>
+            <div
+              style="
+                width: 120px;
+                height: 120px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #909399;
+                font-size: 12px;
+                border: 1px solid #ebeef5;
+              "
+            >
+              加载中
+            </div>
+          </template>
+          <template #error>
+            <div
+              style="
+                width: 120px;
+                height: 120px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #909399;
+                font-size: 12px;
+                border: 1px solid #ebeef5;
+              "
+            >
+              加载失败
+            </div>
+          </template>
+        </el-image>
       </el-form-item>
     </el-form>
     <template #footer>
@@ -96,6 +162,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { adminApi, type Category, type Product } from '../api/admin';
+import { resolvePublicUrl } from '../common/url';
 
 const loading = ref(false);
 const saving = ref(false);

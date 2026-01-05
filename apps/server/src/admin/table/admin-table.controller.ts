@@ -1,8 +1,9 @@
 import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
-import { Roles } from '../../auth/roles.decorator';
 import { RolesGuard } from '../../auth/roles.guard';
+import { MenuPermission } from '../../auth/menu.decorator';
+import { MenuGuard } from '../../auth/menu.guard';
 import { CurrentAdmin } from '../../auth/current-admin.decorator';
 import { AdminJwtUser } from '../../auth/jwt.strategy';
 import { CreateTableDto } from './dto/create-table.dto';
@@ -11,8 +12,8 @@ import { ConfigService } from '@nestjs/config';
 import { signTable } from '../../common/crypto';
 import * as QRCode from 'qrcode';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('OWNER')
+@UseGuards(JwtAuthGuard, RolesGuard, MenuGuard)
+@MenuPermission('tables')
 @Controller('admin/table')
 export class AdminTableController {
   constructor(
@@ -38,7 +39,7 @@ export class AdminTableController {
   }
 
   @Get('dashboard')
-  @Roles('OWNER', 'STAFF')
+  @MenuPermission('table-dashboard')
   async dashboard(@CurrentAdmin() admin: AdminJwtUser) {
     const tables = await this.prisma.table.findMany({
       where: { storeId: admin.storeId, isDeleted: false },
@@ -94,14 +95,14 @@ export class AdminTableController {
   @Get(':id')
   async get(@CurrentAdmin() admin: AdminJwtUser, @Param('id') id: string) {
     const table = await this.prisma.table.findFirst({ where: { id, storeId: admin.storeId } });
-    if (!table) throw new NotFoundException('table not found');
+    if (!table) throw new NotFoundException('桌台不存在');
     return { table };
   }
 
   @Put(':id')
   async update(@CurrentAdmin() admin: AdminJwtUser, @Param('id') id: string, @Body() dto: UpdateTableDto) {
     const current = await this.prisma.table.findFirst({ where: { id, storeId: admin.storeId } });
-    if (!current) throw new NotFoundException('table not found');
+    if (!current) throw new NotFoundException('桌台不存在');
 
     const table = await this.prisma.table.update({
       where: { id },
@@ -116,7 +117,7 @@ export class AdminTableController {
   @Delete(':id')
   async remove(@CurrentAdmin() admin: AdminJwtUser, @Param('id') id: string) {
     const table = await this.prisma.table.findFirst({ where: { id, storeId: admin.storeId } });
-    if (!table) throw new NotFoundException('table not found');
+    if (!table) throw new NotFoundException('桌台不存在');
     if (table.isDeleted) return { ok: true };
     const activeOrders = await this.prisma.order.count({
       where: { storeId: admin.storeId, tableId: id, status: 'ORDERED' }
@@ -132,7 +133,7 @@ export class AdminTableController {
   @Get(':id/qrcode')
   async qrcode(@CurrentAdmin() admin: AdminJwtUser, @Param('id') id: string) {
     const table = await this.prisma.table.findFirst({ where: { id, storeId: admin.storeId } });
-    if (!table) throw new NotFoundException('table not found');
+    if (!table) throw new NotFoundException('桌台不存在');
     if (table.isDeleted || !table.isActive) throw new BadRequestException('桌台已停用或已删除，无法生成二维码');
 
     const secret = String(this.config.get('TABLE_SIGN_SECRET') ?? 'change-me');

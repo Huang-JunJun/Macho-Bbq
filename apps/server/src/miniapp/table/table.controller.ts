@@ -38,7 +38,7 @@ export class MiniTableController {
     if (!table) throw new BadRequestException('桌号无效或已停用');
 
     const store = await this.prisma.store.findUnique({ where: { id: dto.storeId } });
-    if (!store) throw new NotFoundException('store not found');
+    if (!store) throw new NotFoundException('门店不存在');
 
     const existing = await this.prisma.dining_session.findFirst({
       where: { storeId: dto.storeId, tableId: dto.tableId, status: 'ACTIVE', isDeleted: false },

@@ -29,7 +29,7 @@ const route = useRoute();
 const auth = useAuthStore();
 
 const form = reactive({
-  email: 'admin@example.com',
+  email: 'admin',
   password: 'admin123'
 });
 const loading = ref(false);

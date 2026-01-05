@@ -15,6 +15,8 @@ import { AdminSessionService } from './session/admin-session.service';
 import { AdminStaffController } from './staff/admin-staff.controller';
 import { AdminPrintController } from './print/admin-print.controller';
 import { PrintAgentController } from './print/print-agent.controller';
+import { AdminMenuController } from './menus/admin-menu.controller';
+import { AdminRoleController } from './role/admin-role.controller';
 
 @Module({
   imports: [AuthModule, WsModule],
@@ -30,7 +32,9 @@ import { PrintAgentController } from './print/print-agent.controller';
     AdminSessionController,
     AdminStaffController,
     AdminPrintController,
-    PrintAgentController
+    PrintAgentController,
+    AdminMenuController,
+    AdminRoleController
   ],
   providers: [IsTableInStoreConstraint, AdminSessionService]
 })

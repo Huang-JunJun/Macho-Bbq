@@ -25,7 +25,7 @@ export class IsTableInStoreConstraint implements ValidatorConstraintInterface {
   }
 
   defaultMessage() {
-    return 'tableId is invalid for storeId';
+    return '桌台与门店不匹配或不可用';
   }
 }
 
@@ -40,4 +40,3 @@ export function IsTableInStore(validationOptions?: ValidationOptions) {
     });
   };
 }
-

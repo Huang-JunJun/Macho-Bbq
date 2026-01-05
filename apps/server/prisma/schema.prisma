@@ -52,6 +52,7 @@ model store {
   updatedAt DateTime @updatedAt
 
   adminUsers admin_user[]
+  roles     role[]
   tables     table[]
   categories category[]
   products   product[]
@@ -61,6 +62,7 @@ model store {
   tableMoveLogs table_move_log[]
   printers printer[]
   printJobs print_job[]
+  adminActionLogs admin_action_log[]
 }
 
 model admin_user {
@@ -68,14 +70,51 @@ model admin_user {
   email        String   @unique
   passwordHash String
   role         AdminRole   @default(OWNER)
+  roleId       String?
   isActive     Boolean  @default(true)
   storeId      String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   store store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  roleRef role? @relation(fields: [roleId], references: [id], onDelete: SetNull)
   tableMoveLogs table_move_log[]
   printJobs print_job[]
+  operatorLogs admin_action_log[] @relation("admin_action_operator")
+  targetLogs admin_action_log[] @relation("admin_action_target")
+}
+
+model role {
+  id        String   @id @default(cuid())
+  storeId   String
+  name      String
+  key       String?
+  menuKeys  Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store  store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  admins admin_user[]
+
+  @@unique([storeId, name])
+  @@unique([storeId, key])
+  @@index([storeId])
+}
+
+model admin_action_log {
+  id                   String   @id @default(cuid())
+  storeId              String
+  operatorAdminUserId  String
+  targetAdminUserId    String?
+  action               String
+  meta                 Json?
+  createdAt            DateTime @default(now())
+
+  store     store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  operator  admin_user  @relation("admin_action_operator", fields: [operatorAdminUserId], references: [id], onDelete: Restrict)
+  target    admin_user? @relation("admin_action_target", fields: [targetAdminUserId], references: [id], onDelete: SetNull)
+
+  @@index([storeId, createdAt])
 }
 
 model table {

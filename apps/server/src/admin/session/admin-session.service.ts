@@ -14,7 +14,7 @@ export class AdminSessionService {
 
   async getSession(storeId: string, sessionId: string) {
     const session = await this.prisma.dining_session.findFirst({ where: { id: sessionId, storeId, isDeleted: false } });
-    if (!session) throw new NotFoundException('session not found');
+    if (!session) throw new NotFoundException('会话不存在');
     return session;
   }
 
@@ -25,7 +25,7 @@ export class AdminSessionService {
   async settleSession(admin: AdminJwtUser, sessionId: string) {
     const storeId = admin.storeId;
     const session = await this.getSession(storeId, sessionId);
-    if (session.status !== 'ACTIVE') throw new BadRequestException('session already closed');
+    if (session.status !== 'ACTIVE') throw new BadRequestException('该会话已结账');
     const now = new Date();
     await this.prisma.$transaction([
       this.prisma.order.updateMany({
@@ -74,14 +74,14 @@ export class AdminSessionService {
       where: { id: sessionId, storeId: admin.storeId, isDeleted: false },
       include: { table: true }
     });
-    if (!session) throw new NotFoundException('session not found');
-    if (session.status !== 'ACTIVE') throw new BadRequestException('session already closed');
+    if (!session) throw new NotFoundException('会话不存在');
+    if (session.status !== 'ACTIVE') throw new BadRequestException('该会话已结账');
 
     const currentTableId = session.tableId;
     const targetId = String(toTableId ?? '');
-    if (!targetId) throw new BadRequestException('toTableId required');
+    if (!targetId) throw new BadRequestException('缺少目标桌台');
 
-    if (currentTableId !== fromTableId && currentTableId !== targetId) throw new BadRequestException('session table mismatch');
+    if (currentTableId !== fromTableId && currentTableId !== targetId) throw new BadRequestException('会话桌台不匹配');
     if (currentTableId === targetId) {
       return { ok: true, sessionId, fromTableId: currentTableId, toTableId: targetId };
     }
@@ -150,11 +150,11 @@ export class AdminSessionService {
   async batchDeleteSessions(admin: AdminJwtUser, sessionIds: string[]) {
     const storeId = admin.storeId;
     const ids = Array.from(new Set(sessionIds.map((id) => String(id).trim()).filter(Boolean)));
-    if (ids.length === 0) throw new BadRequestException('sessionIds required');
+    if (ids.length === 0) throw new BadRequestException('缺少会话编号');
     const sessions = await this.prisma.dining_session.findMany({
       where: { id: { in: ids }, storeId, isDeleted: false }
     });
-    if (sessions.length !== ids.length) throw new NotFoundException('session not found');
+    if (sessions.length !== ids.length) throw new NotFoundException('会话不存在');
     if (sessions.some((s) => s.status !== 'CLOSED')) {
       throw new BadRequestException('存在未结账会话，无法删除');
     }

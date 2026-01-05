@@ -1,14 +1,15 @@
 import { BadRequestException, Body, Controller, Get, NotFoundException, Put, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
-import { Roles } from '../../auth/roles.decorator';
 import { RolesGuard } from '../../auth/roles.guard';
+import { MenuPermission } from '../../auth/menu.decorator';
+import { MenuGuard } from '../../auth/menu.guard';
 import { CurrentAdmin } from '../../auth/current-admin.decorator';
 import { AdminJwtUser } from '../../auth/jwt.strategy';
 import { UpdateStoreDto } from './dto/update-store.dto';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('OWNER')
+@UseGuards(JwtAuthGuard, RolesGuard, MenuGuard)
+@MenuPermission('store')
 @Controller('admin/store')
 export class AdminStoreController {
   constructor(private prisma: PrismaService) {}
@@ -20,9 +21,9 @@ export class AdminStoreController {
     const list = input.map((raw, idx) => {
       const key = String((raw as any)?.key ?? '').trim();
       const label = String((raw as any)?.label ?? '').trim();
-      if (!key) throw new BadRequestException('辣度 key 不能为空');
+      if (!key) throw new BadRequestException('辣度标识不能为空');
       if (!label) throw new BadRequestException('辣度名称不能为空');
-      if (seen.has(key)) throw new BadRequestException('辣度 key 重复');
+      if (seen.has(key)) throw new BadRequestException('辣度标识重复');
       seen.add(key);
       const sort = Number((raw as any)?.sort ?? idx + 1);
       if (!Number.isFinite(sort)) throw new BadRequestException('辣度排序必须为数字');
@@ -36,7 +37,7 @@ export class AdminStoreController {
   @Get()
   async get(@CurrentAdmin() admin: AdminJwtUser) {
     const store = await this.prisma.store.findUnique({ where: { id: admin.storeId } });
-    if (!store) throw new NotFoundException('store not found');
+    if (!store) throw new NotFoundException('门店不存在');
     return { store };
   }
 

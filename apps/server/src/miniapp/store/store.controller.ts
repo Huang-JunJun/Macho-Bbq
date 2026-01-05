@@ -8,7 +8,7 @@ export class MiniStoreController {
   @Get(':storeId/info')
   async info(@Param('storeId') storeId: string) {
     const store = await this.prisma.store.findUnique({ where: { id: storeId } });
-    if (!store) throw new NotFoundException('store not found');
+    if (!store) throw new NotFoundException('门店不存在');
     const rawOptions = (store as any).spiceOptions ?? [];
     const options = Array.isArray(rawOptions)
       ? rawOptions

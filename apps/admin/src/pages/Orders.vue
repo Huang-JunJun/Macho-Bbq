@@ -38,10 +38,14 @@
       <el-table-column label="金额(元)" width="140">
         <template #default="{ row }">￥{{ yuan(row.totalAmount) }}</template>
       </el-table-column>
-      <el-table-column prop="createdAt" label="下单时间" min-width="180" />
-      <el-table-column prop="lastOrderAt" label="最后加菜时间" min-width="180" />
-      <el-table-column prop="settledAt" label="结账时间" min-width="180">
-        <template #default="{ row }">{{ row.settledAt || '-' }}</template>
+      <el-table-column label="下单时间" min-width="180">
+        <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+      </el-table-column>
+      <el-table-column label="最后加菜时间" min-width="180">
+        <template #default="{ row }">{{ formatDateTime(row.lastOrderAt) }}</template>
+      </el-table-column>
+      <el-table-column label="结账时间" min-width="180">
+        <template #default="{ row }">{{ row.settledAt ? formatDateTime(row.settledAt) : '-' }}</template>
       </el-table-column>
       <el-table-column label="操作" width="160">
         <template #default="{ row }">
@@ -67,6 +71,7 @@ import { adminApi, type OrderSessionRow, type OrderSessionStatus } from '../api/
 import { adminWs } from '../common/ws';
 import { useAuthStore } from '../stores/auth';
 import OrderDetailModal from '../components/OrderDetailModal.vue';
+import { formatDateTime } from '../common/time';
 
 const loading = ref(false);
 const orders = ref<OrderSessionRow[]>([]);

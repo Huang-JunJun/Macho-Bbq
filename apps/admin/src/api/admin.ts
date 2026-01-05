@@ -72,10 +72,38 @@ export type Staff = {
   id: string;
   email: string;
   role: AdminRole;
+  roleId?: string | null;
+  roleName?: string | null;
+  roleKey?: string | null;
   isActive: boolean;
   storeId: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type MenuItem = {
+  key: string;
+  label: string;
+  path: string;
+  sort: number;
+};
+
+export type MenuGroup = {
+  id: string;
+  label: string;
+  sort: number;
+  items: MenuItem[];
+};
+
+export type Role = {
+  id: string;
+  storeId: string;
+  name: string;
+  key?: string | null;
+  menuKeys?: string[] | null;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { admins: number };
 };
 
 export type TableDashboardStatus = 'IDLE' | 'DINING' | 'WAIT_SETTLE';
@@ -202,6 +230,11 @@ export type Feedback = {
 export const adminApi = {
   async login(req: AdminLoginReq) {
     const { data } = await http.post<AdminLoginRes>('/admin/login', req);
+    return data;
+  },
+
+  async listMenus() {
+    const { data } = await http.get<{ groups: MenuGroup[] }>('/admin/menus');
     return data;
   },
 
@@ -369,8 +402,16 @@ export const adminApi = {
     const { data } = await http.get<{ staff: Staff[] }>('/admin/staff/list');
     return data;
   },
-  async createStaff(req: { email: string; password: string }) {
+  async createStaff(req: { email: string; password: string; roleId?: string }) {
     const { data } = await http.post<{ staff: Staff }>('/admin/staff/create', req);
+    return data;
+  },
+  async updateStaffAccount(id: string, email: string) {
+    const { data } = await http.put<{ staff: Staff }>(`/admin/staff/${id}/update-account`, { email });
+    return data;
+  },
+  async updateStaffRole(id: string, roleId: string) {
+    const { data } = await http.put<{ staff: Staff }>(`/admin/staff/${id}/update-role`, { roleId });
     return data;
   },
   async enableStaff(id: string) {
@@ -383,6 +424,27 @@ export const adminApi = {
   },
   async resetStaffPassword(id: string, password: string) {
     const { data } = await http.put<{ staff: Staff }>(`/admin/staff/${id}/reset-password`, { password });
+    return data;
+  },
+
+  async listRoles() {
+    const { data } = await http.get<{ roles: Role[] }>('/admin/role/list');
+    return data;
+  },
+  async createRole(req: { name: string; key?: string }) {
+    const { data } = await http.post<{ role: Role }>('/admin/role/create', req);
+    return data;
+  },
+  async updateRole(id: string, req: { name?: string; key?: string | null }) {
+    const { data } = await http.put<{ role: Role }>(`/admin/role/${id}/update`, req);
+    return data;
+  },
+  async updateRoleMenus(id: string, menuKeys: string[]) {
+    const { data } = await http.put<{ role: Role }>(`/admin/role/${id}/menus`, { menuKeys });
+    return data;
+  },
+  async deleteRole(id: string) {
+    const { data } = await http.delete<{ ok: true }>(`/admin/role/${id}`);
     return data;
   },
 

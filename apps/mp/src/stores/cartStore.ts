@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { api, type CartRes } from '../api';
+import { normalizeImageUrl } from '../utils/url';
 import { useTableStore } from './tableStore';
 
 export type CartItem = {
@@ -80,11 +81,12 @@ export const useCartStore = defineStore('cart', {
     setFromServer(res: CartRes) {
       const next: Record<string, CartItem> = {};
       for (const it of res.items) {
+        const imageUrl = normalizeImageUrl(it.imageUrlSnapshot ?? null);
         next[it.productId] = {
           productId: it.productId,
           name: it.nameSnapshot,
           price: it.priceSnapshot / 100,
-          imageUrl: it.imageUrlSnapshot ?? null,
+          imageUrl: imageUrl || null,
           qty: it.qty
         };
       }
@@ -107,7 +109,9 @@ export const useCartStore = defineStore('cart', {
     },
     updateProductMap(metas: ProductMeta[]) {
       const next: Record<string, ProductMeta> = {};
-      for (const m of metas) next[m.productId] = m;
+      for (const m of metas) {
+        next[m.productId] = { ...m, imageUrl: normalizeImageUrl(m.imageUrl ?? null) || null };
+      }
       this.productMap = next;
     },
     async add(p: { productId: string; name: string; price: number; imageUrl?: string | null }) {

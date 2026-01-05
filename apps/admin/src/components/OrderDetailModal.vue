@@ -6,9 +6,9 @@
         <el-descriptions-item label="人数">{{ detail.session.dinersCount ? `${detail.session.dinersCount}人` : '-' }}</el-descriptions-item>
         <el-descriptions-item label="订单次数">{{ detail.session.orderCount }}</el-descriptions-item>
         <el-descriptions-item label="状态">{{ statusLabel(detail.session.status) }}</el-descriptions-item>
-        <el-descriptions-item label="下单时间">{{ detail.session.createdAt }}</el-descriptions-item>
-        <el-descriptions-item label="最后加菜时间">{{ detail.session.lastOrderAt }}</el-descriptions-item>
-        <el-descriptions-item label="结账时间">{{ detail.session.settledAt || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="下单时间">{{ formatDateTime(detail.session.createdAt) }}</el-descriptions-item>
+        <el-descriptions-item label="最后加菜时间">{{ formatDateTime(detail.session.lastOrderAt) }}</el-descriptions-item>
+        <el-descriptions-item label="结账时间">{{ detail.session.settledAt ? formatDateTime(detail.session.settledAt) : '-' }}</el-descriptions-item>
         <el-descriptions-item label="合计金额(元)">￥{{ yuan(detail.totalAmount) }}</el-descriptions-item>
       </el-descriptions>
 
@@ -20,7 +20,7 @@
       >
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
           <div style="font-weight: 700">第{{ order.seqNo }}次下单</div>
-          <div style="color: #606266">{{ order.createdAt }}</div>
+          <div style="color: #606266">{{ formatDateTime(order.createdAt) }}</div>
           <div style="font-weight: 700">￥{{ yuan(order.amount) }}</div>
         </div>
         <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; color: #606266">
@@ -88,6 +88,7 @@ import { computed, ref, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { adminApi, type OrderSessionDetail, type OrderSessionStatus, type Table } from '../api/admin';
 import { useAuthStore } from '../stores/auth';
+import { formatDateTime } from '../common/time';
 
 const props = defineProps<{ modelValue: boolean; sessionId: string | null }>();
 const emit = defineEmits<{

@@ -3,17 +3,15 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { randomUUID } from 'crypto';
-import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
-import { Roles } from '../../auth/roles.decorator';
 import { RolesGuard } from '../../auth/roles.guard';
+import { MenuPermission } from '../../auth/menu.decorator';
+import { MenuGuard } from '../../auth/menu.guard';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('OWNER')
+@UseGuards(JwtAuthGuard, RolesGuard, MenuGuard)
+@MenuPermission('products')
 @Controller('admin/upload')
 export class AdminUploadController {
-  constructor(private config: ConfigService) {}
-
   @Post('image')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -27,9 +25,7 @@ export class AdminUploadController {
     })
   )
   async uploadImage(@UploadedFile() file: Express.Multer.File) {
-    const publicUrl = String(this.config.get('UPLOAD_PUBLIC_URL') ?? '').replace(/\/+$/, '');
     const path = `/uploads/${file.filename}`;
-    const url = publicUrl ? `${publicUrl}${path}` : path;
-    return { url };
+    return { url: path };
   }
 }

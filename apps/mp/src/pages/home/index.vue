@@ -92,6 +92,7 @@ function callStore() {
 
 async function reload() {
   const storeId = getDefaultStoreId();
+  console.log('storeId', storeId);
   if (!storeId) return;
   const res = await api.getStoreInfo(storeId);
   store.value = res.store as any;

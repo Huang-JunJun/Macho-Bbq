@@ -1,7 +1,28 @@
+import { API_BASE_URL } from '../config/env';
+
 export type ApiError = {
   statusCode?: number;
   message?: string;
 };
+
+function normalizeMessage(raw: unknown, fallback: string) {
+  const text = String(raw ?? '').trim();
+  if (!text) return fallback;
+  if (!/[A-Za-z]/.test(text)) return text;
+  const lower = text.toLowerCase();
+  if (lower.includes('forbidden')) return '没有权限执行该操作';
+  if (lower.includes('unauthorized')) return '登录已失效，请重新登录';
+  if (lower.includes('bad request')) return '请求参数有误';
+  if (lower.includes('not found')) return '未找到相关数据';
+  if (lower.includes('should not be empty') || lower.includes('must be longer')) return '请完整填写信息';
+  if (lower.includes('must be a string') || lower.includes('must be a number') || lower.includes('must be a boolean')) {
+    return '输入格式不正确';
+  }
+  if (lower.includes('invalid credentials')) return '账号或密码错误';
+  if (lower.includes('account disabled')) return '账号已被禁用';
+  if (lower.includes('network error')) return '网络异常，请检查网络';
+  return fallback;
+}
 
 function getToken() {
   try {
@@ -15,11 +36,7 @@ function getToken() {
 }
 
 export function getBaseUrl() {
-  try {
-    const fromStorage = uni.getStorageSync('BBQ_API_BASE_URL');
-    if (fromStorage) return String(fromStorage);
-  } catch {}
-  return (import.meta.env as any).VITE_API_BASE_URL || 'http://localhost:3000';
+  return API_BASE_URL;
 }
 
 export async function request<T>(opts: {
@@ -53,12 +70,13 @@ export async function request<T>(opts: {
           return;
         }
         const msg = (res.data as any)?.message;
-        const message =
-          Array.isArray(msg) ? msg.map((x) => String(x)).join('；') : msg ? String(msg) : 'request error';
+        const rawMessage = Array.isArray(msg) ? msg.map((x) => String(x)).join('；') : msg ? String(msg) : '';
+        const message = normalizeMessage(rawMessage, '请求失败，请稍后重试');
         reject({ statusCode, message } satisfies ApiError);
       },
       fail: (err) => {
-        reject({ statusCode: 0, message: err?.errMsg ?? 'network error' } satisfies ApiError);
+        const message = normalizeMessage(err?.errMsg, '网络异常，请检查网络');
+        reject({ statusCode: 0, message } satisfies ApiError);
       }
     });
   });

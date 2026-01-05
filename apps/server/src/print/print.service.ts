@@ -35,8 +35,8 @@ export class PrintService {
         }
       }
     });
-    if (!session) throw new NotFoundException('session not found');
-    if (!session.orders.length) throw new BadRequestException('session has no orders');
+    if (!session) throw new NotFoundException('会话不存在');
+    if (!session.orders.length) throw new BadRequestException('该会话没有订单');
     return session;
   }
 
@@ -70,8 +70,8 @@ export class PrintService {
       where: { id: orderId },
       include: { store: true, table: true, items: true }
     });
-    if (!order) throw new NotFoundException('order not found');
-    if (!order.sessionId) throw new BadRequestException('missing sessionId');
+    if (!order) throw new NotFoundException('订单不存在');
+    if (!order.sessionId) throw new BadRequestException('缺少会话编号');
     const seqNo = await this.prisma.order.count({
       where: { sessionId: order.sessionId, createdAt: { lte: order.createdAt }, status: { not: 'CANCELLED' } }
     });
@@ -216,11 +216,11 @@ export class PrintService {
   }
 
   async validateAgent(printerId: string, agentKey: string) {
-    if (!agentKey) throw new UnauthorizedException('invalid agent');
+    if (!agentKey) throw new UnauthorizedException('打印机校验失败');
     const printer = await this.prisma.printer.findFirst({
       where: { id: printerId, agentKey }
     });
-    if (!printer || !printer.isActive) throw new UnauthorizedException('invalid agent');
+    if (!printer || !printer.isActive) throw new UnauthorizedException('打印机校验失败');
     return printer;
   }
 
@@ -242,7 +242,7 @@ export class PrintService {
 
   async reportJob(printerId: string, jobId: string, ok: boolean, errorMessage?: string) {
     const job = await this.prisma.print_job.findFirst({ where: { id: jobId, printerId } });
-    if (!job) throw new NotFoundException('job not found');
+    if (!job) throw new NotFoundException('打印任务不存在');
     await this.prisma.print_job.update({
       where: { id: jobId },
       data: {

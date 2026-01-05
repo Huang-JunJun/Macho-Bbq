@@ -38,7 +38,7 @@
           {{ s.label }}
         </view>
       </view>
-      <view v-if="!spiceKey" class="warn">请选择辣度后才能提交</view>
+      <view v-if="!spiceKey" class="warn">选择辣度后才能提交哦</view>
       <view class="section-title" style="margin-top: 12rpx">备注</view>
       <input v-model="remark" class="input" placeholder="可选" />
     </view>

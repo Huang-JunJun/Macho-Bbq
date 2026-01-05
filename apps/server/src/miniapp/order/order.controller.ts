@@ -41,7 +41,7 @@ export class MiniOrderController {
     if (session.status !== 'ACTIVE') throw new BadRequestException('本桌已结账，请重新扫码开桌');
 
     const store = await this.prisma.store.findUnique({ where: { id: dto.storeId } });
-    if (!store) throw new BadRequestException('store not found');
+    if (!store) throw new BadRequestException('门店不存在');
     const rawOptions = (store as any).spiceOptions ?? [];
     const options = Array.isArray(rawOptions)
       ? rawOptions
@@ -174,7 +174,7 @@ export class MiniOrderController {
       where: { id, status: { in: ['ORDERED', 'SETTLED'] } },
       include: { items: true }
     });
-    if (!order) throw new NotFoundException('order not found');
+    if (!order) throw new NotFoundException('订单不存在');
     return {
       order: {
         ...order,

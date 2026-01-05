@@ -42,7 +42,7 @@ export class MpAuthService {
     const json = (await res.json()) as JsCode2SessionResponse;
     if (!res.ok) throw new BadRequestException('微信登录失败');
     if (json.errcode) {
-      throw new BadRequestException(`微信登录失败：${json.errcode} ${json.errmsg || ''}`.trim());
+      throw new BadRequestException(`微信登录失败，错误码：${json.errcode}`);
     }
     const openid = String(json.openid ?? '');
     if (!openid) throw new BadRequestException('微信登录失败');

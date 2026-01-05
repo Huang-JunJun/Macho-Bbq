@@ -105,7 +105,7 @@ import { useTableStore } from '../../stores/table';
 import { useCartStore } from '../../stores/cartStore';
 import CartPopup from '../../components/CartPopup.vue';
 import { scanToOrder } from '../../common/scan';
-import { getBaseUrl } from '../../api/request';
+import { WS_BASE_URL } from '../../config/env';
 
 const tableStore = useTableStore();
 const cart = useCartStore();
@@ -183,6 +183,7 @@ async function reload() {
       isOnSale: p.isOnSale,
       isSoldOut: p.isSoldOut
     }));
+
   cart.updateProductMap(metas);
 }
 
@@ -275,8 +276,7 @@ function stopPoll() {
 }
 
 function buildWsUrl() {
-  const base = getBaseUrl().replace(/\/+$/, '');
-  const wsBase = base.startsWith('https') ? base.replace(/^https/, 'wss') : base.replace(/^http/, 'ws');
+  const wsBase = WS_BASE_URL.replace(/\/+$/, '');
   const storeId = encodeURIComponent(tableStore.storeId);
   const tableId = encodeURIComponent(tableStore.tableId);
   const sessionId = encodeURIComponent(tableStore.sessionId);

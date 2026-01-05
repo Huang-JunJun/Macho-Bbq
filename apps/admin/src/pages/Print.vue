@@ -77,7 +77,9 @@
       <el-table-column prop="sessionId" label="会话" min-width="200" />
       <el-table-column prop="printerName" label="打印机" min-width="180" />
       <el-table-column prop="operatorEmail" label="操作人" min-width="160" />
-      <el-table-column prop="createdAt" label="创建时间" min-width="180" />
+      <el-table-column label="创建时间" min-width="180">
+        <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+      </el-table-column>
       <el-table-column prop="errorMessage" label="错误信息" min-width="220" />
       <el-table-column label="操作" width="140">
         <template #default="{ row }">
@@ -92,6 +94,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { adminApi, type Printer, type PrintJob } from '../api/admin';
+import { formatDateTime } from '../common/time';
 
 const printers = ref<Printer[]>([]);
 const printerForm = reactive({ name: '' });

@@ -2,15 +2,16 @@ import { BadRequestException, Controller, Delete, Get, NotFoundException, Param,
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { RolesGuard } from '../../auth/roles.guard';
+import { MenuPermission } from '../../auth/menu.decorator';
+import { MenuGuard } from '../../auth/menu.guard';
 import { CurrentAdmin } from '../../auth/current-admin.decorator';
 import { AdminJwtUser } from '../../auth/jwt.strategy';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdminOrderListQueryDto } from './dto/admin-order-list-query.dto';
-import { formatDateTimeCN } from '../../common/datetime';
 import { AdminSessionService } from '../session/admin-session.service';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('OWNER', 'STAFF')
+@UseGuards(JwtAuthGuard, RolesGuard, MenuGuard)
+@MenuPermission('orders')
 @Controller('admin/order')
 export class AdminOrderController {
   constructor(private prisma: PrismaService, private sessionService: AdminSessionService) {}
@@ -45,9 +46,9 @@ export class AdminOrderController {
           status: s.status,
           orderCount: orders.length,
           totalAmount,
-          createdAt: formatDateTimeCN(firstOrderAt),
-          lastOrderAt: formatDateTimeCN(lastOrderAt),
-          settledAt: s.closedAt ? formatDateTimeCN(s.closedAt) : null,
+          createdAt: firstOrderAt,
+          lastOrderAt: lastOrderAt,
+          settledAt: s.closedAt ?? null,
           _createdAt: firstOrderAt,
           _lastOrderAt: lastOrderAt
         };
@@ -65,7 +66,7 @@ export class AdminOrderController {
 
   @Get('detail')
   async detail(@CurrentAdmin() admin: AdminJwtUser, @Query('sessionId') sessionId: string) {
-    if (!sessionId) throw new BadRequestException('sessionId required');
+    if (!sessionId) throw new BadRequestException('缺少会话编号');
     const session = await this.prisma.dining_session.findFirst({
       where: { id: sessionId, storeId: admin.storeId, isDeleted: false },
       include: {
@@ -77,7 +78,7 @@ export class AdminOrderController {
         }
       }
     });
-    if (!session) throw new NotFoundException('session not found');
+    if (!session) throw new NotFoundException('会话不存在');
     const store = await this.prisma.store.findUnique({ where: { id: admin.storeId } });
     const rawOptions = (store as any)?.spiceOptions ?? [];
     const spiceOptions = Array.isArray(rawOptions)
@@ -126,7 +127,7 @@ export class AdminOrderController {
     const detailOrders = orders.map((o, index) => ({
       orderId: o.id,
       seqNo: index + 1,
-      createdAt: formatDateTimeCN(o.createdAt),
+      createdAt: o.createdAt,
       amount: o.amount,
       spiceLabel: o.spiceLabelSnapshot || (o.spiceKey ? spiceMap.get(o.spiceKey) : '') || o.spiceKey || '',
       remark: o.remark ?? '',
@@ -145,9 +146,9 @@ export class AdminOrderController {
         tableName: session.table?.name ?? null,
         dinersCount: session.dinersCount,
         status: session.status,
-        createdAt: formatDateTimeCN(firstOrderAt),
-        lastOrderAt: formatDateTimeCN(lastOrderAt),
-        settledAt: session.closedAt ? formatDateTimeCN(session.closedAt) : null,
+        createdAt: firstOrderAt,
+        lastOrderAt: lastOrderAt,
+        settledAt: session.closedAt ?? null,
         orderCount: orders.length
       },
       totalAmount,
@@ -162,13 +163,13 @@ export class AdminOrderController {
       where: { id, storeId: admin.storeId },
       include: { items: true, table: true }
     });
-    if (!order) throw new NotFoundException('order not found');
+    if (!order) throw new NotFoundException('订单不存在');
     return {
       order: {
         ...order,
-        createdAt: formatDateTimeCN(order.createdAt),
-        updatedAt: formatDateTimeCN(order.updatedAt),
-        settledAt: order.settledAt ? formatDateTimeCN(order.settledAt) : null
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+        settledAt: order.settledAt ?? null
       }
     };
   }
@@ -176,7 +177,7 @@ export class AdminOrderController {
   @Put(':id/settle')
   async settle(@CurrentAdmin() admin: AdminJwtUser, @Param('id') id: string) {
     const order = await this.prisma.order.findFirst({ where: { id, storeId: admin.storeId } });
-    if (!order) throw new NotFoundException('order not found');
+    if (!order) throw new NotFoundException('订单不存在');
     if (order.sessionId) {
       return this.sessionService.settleSession(admin, order.sessionId);
     }
@@ -193,7 +194,7 @@ export class AdminOrderController {
   @Roles('OWNER')
   async remove(@CurrentAdmin() admin: AdminJwtUser, @Param('id') id: string) {
     const order = await this.prisma.order.findFirst({ where: { id, storeId: admin.storeId } });
-    if (!order) throw new NotFoundException('order not found');
+    if (!order) throw new NotFoundException('订单不存在');
     await this.prisma.$transaction([
       this.prisma.order_item.deleteMany({ where: { orderId: id } }),
       this.prisma.order.delete({ where: { id } })

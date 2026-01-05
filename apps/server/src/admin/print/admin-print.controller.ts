@@ -1,8 +1,9 @@
 import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
-import { Roles } from '../../auth/roles.decorator';
 import { RolesGuard } from '../../auth/roles.guard';
+import { MenuPermission } from '../../auth/menu.decorator';
+import { MenuGuard } from '../../auth/menu.guard';
 import { CurrentAdmin } from '../../auth/current-admin.decorator';
 import { AdminJwtUser } from '../../auth/jwt.strategy';
 import { PrintService } from '../../print/print.service';
@@ -10,8 +11,8 @@ import { CreatePrinterDto } from './dto/create-printer.dto';
 import { UpdatePrinterDto } from './dto/update-printer.dto';
 import { PrintJobQueryDto } from './dto/print-job-query.dto';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('OWNER')
+@UseGuards(JwtAuthGuard, RolesGuard, MenuGuard)
+@MenuPermission('print')
 @Controller('admin/print')
 export class AdminPrintController {
   constructor(
@@ -45,7 +46,7 @@ export class AdminPrintController {
   @Put('printers/:id')
   async updatePrinter(@CurrentAdmin() admin: AdminJwtUser, @Param('id') id: string, @Body() dto: UpdatePrinterDto) {
     const printer = await this.prisma.printer.findFirst({ where: { id, storeId: admin.storeId } });
-    if (!printer) throw new NotFoundException('printer not found');
+    if (!printer) throw new NotFoundException('打印机不存在');
     const updated = await this.prisma.printer.update({
       where: { id },
       data: {
@@ -116,10 +117,10 @@ export class AdminPrintController {
   @Post('jobs/:id/retry')
   async retryJob(@CurrentAdmin() admin: AdminJwtUser, @Param('id') id: string) {
     const job = await this.prisma.print_job.findFirst({ where: { id, storeId: admin.storeId } });
-    if (!job) throw new NotFoundException('job not found');
+    if (!job) throw new NotFoundException('打印任务不存在');
     if (job.status !== 'FAILED') throw new BadRequestException('仅失败任务可重试');
     const printer = await this.prisma.printer.findFirst({ where: { id: job.printerId, storeId: admin.storeId } });
-    if (!printer) throw new NotFoundException('printer not found');
+    if (!printer) throw new NotFoundException('打印机不存在');
     const newJob = await this.prisma.print_job.create({
       data: {
         storeId: admin.storeId,

@@ -1,15 +1,16 @@
 import { Body, Controller, Delete, Get, NotFoundException, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
-import { Roles } from '../../auth/roles.decorator';
 import { RolesGuard } from '../../auth/roles.guard';
+import { MenuPermission } from '../../auth/menu.decorator';
+import { MenuGuard } from '../../auth/menu.guard';
 import { CurrentAdmin } from '../../auth/current-admin.decorator';
 import { AdminJwtUser } from '../../auth/jwt.strategy';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('OWNER')
+@UseGuards(JwtAuthGuard, RolesGuard, MenuGuard)
+@MenuPermission('categories')
 @Controller('admin/category')
 export class AdminCategoryController {
   constructor(private prisma: PrismaService) {}
@@ -34,14 +35,14 @@ export class AdminCategoryController {
   @Get(':id')
   async get(@CurrentAdmin() admin: AdminJwtUser, @Param('id') id: string) {
     const category = await this.prisma.category.findFirst({ where: { id, storeId: admin.storeId } });
-    if (!category) throw new NotFoundException('category not found');
+    if (!category) throw new NotFoundException('类目不存在');
     return { category };
   }
 
   @Put(':id')
   async update(@CurrentAdmin() admin: AdminJwtUser, @Param('id') id: string, @Body() dto: UpdateCategoryDto) {
     const current = await this.prisma.category.findFirst({ where: { id, storeId: admin.storeId } });
-    if (!current) throw new NotFoundException('category not found');
+    if (!current) throw new NotFoundException('类目不存在');
 
     const category = await this.prisma.category.update({
       where: { id },
@@ -56,7 +57,7 @@ export class AdminCategoryController {
   @Delete(':id')
   async remove(@CurrentAdmin() admin: AdminJwtUser, @Param('id') id: string) {
     const category = await this.prisma.category.findFirst({ where: { id, storeId: admin.storeId } });
-    if (!category) throw new NotFoundException('category not found');
+    if (!category) throw new NotFoundException('类目不存在');
     await this.prisma.category.delete({ where: { id } });
     return { ok: true };
   }

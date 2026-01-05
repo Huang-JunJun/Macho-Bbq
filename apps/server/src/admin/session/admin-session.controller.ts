@@ -2,6 +2,8 @@ import { BadRequestException, Body, Controller, NotFoundException, Param, Post, 
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { RolesGuard } from '../../auth/roles.guard';
+import { MenuPermission } from '../../auth/menu.decorator';
+import { MenuGuard } from '../../auth/menu.guard';
 import { CurrentAdmin } from '../../auth/current-admin.decorator';
 import { AdminJwtUser } from '../../auth/jwt.strategy';
 import { AdminSessionService } from './admin-session.service';
@@ -9,7 +11,8 @@ import { PrintService } from '../../print/print.service';
 import { MoveTableDto } from './dto/move-table.dto';
 import { BatchDeleteSessionDto } from './dto/batch-delete.dto';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, MenuGuard)
+@MenuPermission('orders')
 @Controller('admin/session')
 export class AdminSessionController {
   constructor(
@@ -18,7 +21,6 @@ export class AdminSessionController {
   ) {}
 
   @Put(':sessionId/settle')
-  @Roles('OWNER', 'STAFF')
   async settle(@CurrentAdmin() admin: AdminJwtUser, @Param('sessionId') sessionId: string) {
     return this.sessionService.settleSession(admin, sessionId);
   }
@@ -34,22 +36,20 @@ export class AdminSessionController {
   }
 
   @Post(':sessionId/print/bill')
-  @Roles('OWNER', 'STAFF')
   async printBill(@CurrentAdmin() admin: AdminJwtUser, @Param('sessionId') sessionId: string) {
     const session = await this.sessionService.getSession(admin.storeId, sessionId);
-    if (session.status !== 'ACTIVE') throw new BadRequestException('session already closed');
+    if (session.status !== 'ACTIVE') throw new BadRequestException('该会话已结账');
     const table = await this.sessionService.getTable(admin.storeId, session.tableId);
-    if (!table || table.currentSessionId !== sessionId) throw new BadRequestException('session invalid');
+    if (!table || table.currentSessionId !== sessionId) throw new BadRequestException('会话无效');
     await this.print.enqueueBill(sessionId, admin.adminUserId);
     return { ok: true };
   }
 
   @Post(':sessionId/print/receipt')
-  @Roles('OWNER', 'STAFF')
   async printReceipt(@CurrentAdmin() admin: AdminJwtUser, @Param('sessionId') sessionId: string) {
     const session = await this.sessionService.getSession(admin.storeId, sessionId);
-    if (session.status !== 'CLOSED') throw new BadRequestException('session not settled');
-    if (!session.closedAt) throw new NotFoundException('settledAt missing');
+    if (session.status !== 'CLOSED') throw new BadRequestException('会话尚未结账');
+    if (!session.closedAt) throw new NotFoundException('结账时间缺失');
     await this.print.enqueueReceipt(sessionId, admin.adminUserId, admin.email, 'manual');
     return { ok: true };
   }

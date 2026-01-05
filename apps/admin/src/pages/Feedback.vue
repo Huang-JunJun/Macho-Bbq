@@ -8,7 +8,9 @@
     </template>
 
     <el-table :data="feedbacks" style="width: 100%" v-loading="loading">
-      <el-table-column prop="createdAt" label="时间" min-width="180" />
+      <el-table-column label="时间" min-width="180">
+        <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+      </el-table-column>
       <el-table-column label="类型" width="120">
         <template #default="{ row }">{{ typeLabel(row.type) }}</template>
       </el-table-column>
@@ -34,7 +36,7 @@
   <el-dialog v-model="visible" title="反馈详情" width="760px">
     <div v-if="current">
       <el-descriptions :column="2" border>
-        <el-descriptions-item label="时间">{{ current.createdAt }}</el-descriptions-item>
+        <el-descriptions-item label="时间">{{ formatDateTime(current.createdAt) }}</el-descriptions-item>
         <el-descriptions-item label="类型">{{ typeLabel(current.type) }}</el-descriptions-item>
         <el-descriptions-item label="桌台">{{ current.table?.name || current.tableId || '-' }}</el-descriptions-item>
         <el-descriptions-item label="联系方式">{{ current.contact || '-' }}</el-descriptions-item>
@@ -46,13 +48,44 @@
         <el-image
           v-for="(url, idx) in current.images"
           :key="idx"
-          :src="url"
+          :src="resolvePublicUrl(url)"
           style="width: 120px; height: 120px; border: 1px solid #ebeef5"
           fit="cover"
-          :preview-src-list="current.images"
+          :preview-src-list="previewImages"
           :initial-index="idx"
           preview-teleported
-        />
+        >
+          <template #placeholder>
+            <div
+              style="
+                width: 120px;
+                height: 120px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #909399;
+                font-size: 12px;
+              "
+            >
+              加载中
+            </div>
+          </template>
+          <template #error>
+            <div
+              style="
+                width: 120px;
+                height: 120px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #909399;
+                font-size: 12px;
+              "
+            >
+              加载失败
+            </div>
+          </template>
+        </el-image>
       </div>
       <div v-else style="color: #909399; margin-top: 8px">无</div>
     </div>
@@ -61,14 +94,17 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { adminApi, type Feedback } from '../api/admin';
+import { resolvePublicUrl, resolvePublicUrls } from '../common/url';
+import { formatDateTime } from '../common/time';
 
 const loading = ref(false);
 const feedbacks = ref<Feedback[]>([]);
 const visible = ref(false);
 const current = ref<Feedback | null>(null);
+const previewImages = computed(() => resolvePublicUrls(current.value?.images));
 
 function typeLabel(t: Feedback['type']) {
   if (t === 'DISH') return '菜品';
@@ -96,4 +132,3 @@ function openDetail(row: Feedback) {
 
 onMounted(reload);
 </script>
-

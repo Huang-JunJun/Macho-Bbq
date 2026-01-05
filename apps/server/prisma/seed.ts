@@ -34,11 +34,45 @@ async function main() {
     }
   });
 
+  const allMenuKeys = [
+    'orders',
+    'table-dashboard',
+    'tables',
+    'categories',
+    'products',
+    'feedback',
+    'store',
+    'staff',
+    'roles',
+    'print'
+  ];
+  const staffMenuKeys = ['orders', 'table-dashboard'];
+
+  const ownerRole = await prisma.role.upsert({
+    where: { storeId_key: { storeId: store.id, key: 'OWNER' } },
+    update: { name: '店长', menuKeys: allMenuKeys as any },
+    create: { storeId: store.id, name: '店长', key: 'OWNER', menuKeys: allMenuKeys as any }
+  });()
+
+  const staffRole = await prisma.role.upsert({
+    where: { storeId_key: { storeId: store.id, key: 'STAFF' } },
+    update: { name: '员工', menuKeys: staffMenuKeys as any },
+    create: { storeId: store.id, name: '员工', key: 'STAFF', menuKeys: staffMenuKeys as any }
+  });
+
   const passwordHash = await bcrypt.hash('admin123', 10);
   await prisma.admin_user.upsert({
-    where: { email: 'admin@example.com' },
-    update: { passwordHash, storeId: store.id, role: 'OWNER', isActive: true },
-    create: { email: 'admin@example.com', passwordHash, storeId: store.id, role: 'OWNER', isActive: true }
+    where: { email: 'admin' },
+    update: { passwordHash, storeId: store.id, role: 'OWNER', roleId: ownerRole.id, isActive: true },
+    create: { email: 'admin', passwordHash, storeId: store.id, role: 'OWNER', roleId: ownerRole.id, isActive: true }
+  });
+  await prisma.admin_user.updateMany({
+    where: { storeId: store.id, role: 'OWNER', roleId: null },
+    data: { roleId: ownerRole.id }
+  });
+  await prisma.admin_user.updateMany({
+    where: { storeId: store.id, role: 'STAFF', roleId: null },
+    data: { roleId: staffRole.id }
   });
 
   const desiredA1Id = 'table_demo_a1';

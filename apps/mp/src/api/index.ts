@@ -1,4 +1,5 @@
 import { request } from './request';
+import { normalizeImageUrl } from '../utils/url';
 
 export type OrderStatus = 'ORDERED' | 'SETTLED' | 'CANCELLED';
 export type OrderChannel = 'DINE_IN' | 'PICKUP' | 'DELIVERY';
@@ -129,7 +130,15 @@ export const api = {
     return request<CartRes>({ path: '/cart/clear', method: 'POST', data: req });
   },
   getMenu(storeId: string) {
-    return request<{ categories: Category[] }>({ path: '/menu', method: 'GET', query: { storeId } });
+    return request<{ categories: Category[] }>({ path: '/menu', method: 'GET', query: { storeId } }).then((res) => ({
+      categories: res.categories.map((category) => ({
+        ...category,
+        products: (category.products ?? []).map((product) => ({
+          ...product,
+          imageUrl: normalizeImageUrl(product.imageUrl)
+        }))
+      }))
+    }));
   },
   createOrder(req: {
     storeId: string;

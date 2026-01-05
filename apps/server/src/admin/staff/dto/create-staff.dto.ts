@@ -1,4 +1,4 @@
-import { IsString, Matches, MinLength } from 'class-validator';
+import { IsOptional, IsString, Matches, MinLength } from 'class-validator';
 
 export class CreateStaffDto {
   @IsString()
@@ -9,4 +9,8 @@ export class CreateStaffDto {
   @IsString()
   @MinLength(6)
   password!: string;
+
+  @IsOptional()
+  @IsString()
+  roleId?: string;
 }
