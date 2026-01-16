@@ -104,7 +104,7 @@ const loading = ref(false);
 const feedbacks = ref<Feedback[]>([]);
 const visible = ref(false);
 const current = ref<Feedback | null>(null);
-const previewImages = computed(() => resolvePublicUrls(current.value?.images));
+const previewImages = computed(() => resolvePublicUrls(current.value?.images ?? undefined));
 
 function typeLabel(t: Feedback['type']) {
   if (t === 'DISH') return '菜品';
