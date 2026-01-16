@@ -29,6 +29,17 @@ export class AdminOrderController {
         }
       }
     });
+    const sessionIds = sessions.map((s) => s.id);
+    const refundRows = sessionIds.length
+      ? await this.prisma.session_item_refund.findMany({
+          where: { sessionId: { in: sessionIds } },
+          select: { sessionId: true, priceSnapshot: true, qty: true }
+        })
+      : [];
+    const refundAmountMap = new Map<string, number>();
+    for (const row of refundRows) {
+      refundAmountMap.set(row.sessionId, (refundAmountMap.get(row.sessionId) ?? 0) + row.priceSnapshot * row.qty);
+    }
     const startAt = q.startAt ? new Date(q.startAt) : null;
     const endAt = q.endAt ? new Date(q.endAt) : null;
     const rows = sessions
@@ -37,7 +48,9 @@ export class AdminOrderController {
         if (!orders.length) return null;
         const firstOrderAt = orders[0]?.createdAt ?? s.createdAt;
         const lastOrderAt = orders[orders.length - 1]?.createdAt ?? firstOrderAt;
-        const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
+        const rawTotal = orders.reduce((sum, o) => sum + o.amount, 0);
+        const refundAmount = refundAmountMap.get(s.id) ?? 0;
+        const totalAmount = Math.max(0, rawTotal - refundAmount);
         return {
           sessionId: s.id,
           tableId: s.tableId,
@@ -102,7 +115,6 @@ export class AdminOrderController {
         nameSnapshot: string;
         priceSnapshot: number;
         totalQty: number;
-        lineTotal: number;
       }
     >();
     for (const o of orders) {
@@ -110,20 +122,35 @@ export class AdminOrderController {
         const existing = mergedMap.get(item.productId);
         if (existing) {
           existing.totalQty += item.qty;
-          existing.lineTotal += item.priceSnapshot * item.qty;
         } else {
           mergedMap.set(item.productId, {
             productId: item.productId,
             nameSnapshot: item.nameSnapshot,
             priceSnapshot: item.priceSnapshot,
-            totalQty: item.qty,
-            lineTotal: item.priceSnapshot * item.qty
+            totalQty: item.qty
           });
         }
       }
     }
-    const mergedItems = Array.from(mergedMap.values());
-    const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
+    const refundRows = await this.prisma.session_item_refund.findMany({ where: { sessionId: session.id } });
+    const refundMap = new Map<string, number>();
+    for (const r of refundRows) {
+      refundMap.set(r.productId, (refundMap.get(r.productId) ?? 0) + r.qty);
+    }
+    const mergedItems = Array.from(mergedMap.values())
+      .map((it) => {
+        const refunded = refundMap.get(it.productId) ?? 0;
+        const totalQty = Math.max(0, it.totalQty - refunded);
+        return {
+          productId: it.productId,
+          nameSnapshot: it.nameSnapshot,
+          priceSnapshot: it.priceSnapshot,
+          totalQty,
+          lineTotal: it.priceSnapshot * totalQty
+        };
+      })
+      .filter((it) => it.totalQty > 0);
+    const totalAmount = mergedItems.reduce((sum, it) => sum + it.lineTotal, 0);
     const detailOrders = orders.map((o, index) => ({
       orderId: o.id,
       seqNo: index + 1,

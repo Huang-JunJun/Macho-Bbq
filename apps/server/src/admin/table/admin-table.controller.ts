@@ -59,6 +59,16 @@ export class AdminTableController {
           }
         })
       : [];
+    const refundRows = sessionIds.length
+      ? await this.prisma.session_item_refund.findMany({
+          where: { sessionId: { in: sessionIds } },
+          select: { sessionId: true, priceSnapshot: true, qty: true }
+        })
+      : [];
+    const refundAmountMap = new Map<string, number>();
+    for (const row of refundRows) {
+      refundAmountMap.set(row.sessionId, (refundAmountMap.get(row.sessionId) ?? 0) + row.priceSnapshot * row.qty);
+    }
     const sessionMap = new Map(sessions.map((s) => [s.id, s]));
     const rows = tables.map((t) => {
       const session = t.currentSessionId ? sessionMap.get(t.currentSessionId) : null;
@@ -72,7 +82,9 @@ export class AdminTableController {
       }
       const orders = session.orders;
       const orderCount = orders.length;
-      const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
+      const rawTotal = orders.reduce((sum, o) => sum + o.amount, 0);
+      const refundAmount = refundAmountMap.get(session.id) ?? 0;
+      const totalAmount = Math.max(0, rawTotal - refundAmount);
       const firstOrderAt = orders[0]?.createdAt ?? session.createdAt;
       const lastOrderAt = orders[orders.length - 1]?.createdAt ?? firstOrderAt;
       const status = orderCount > 0 ? 'WAIT_SETTLE' : 'DINING';

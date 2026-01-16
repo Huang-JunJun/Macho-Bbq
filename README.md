@@ -25,7 +25,7 @@ apps/
 ## 功能模块清单
 ### Admin（后台）
 - 登录、无权限页（/login、/403）
-- 订单管理（会话聚合列表、详情弹窗、结账、换桌）
+- 订单管理（会话聚合列表、详情弹窗、加菜=再次下单、合并清单退菜、结账、换桌）
 - 桌台管理（桌台状态面板、桌台 CRUD、桌贴二维码）
 - 商品管理（类目/商品 CRUD、单图上传与预览，不展示图片地址）
 - 运营/反馈
@@ -54,7 +54,8 @@ apps/
 ### Admin APIs（/admin/...）
 - 登录：`POST /admin/login`
 - 订单/会话：`/admin/order/list`、`/admin/order/detail`、`/admin/order/:id`、`/admin/order/:id/settle`、
-  `/admin/session/:id/settle`、`/admin/session/:id/move-table`、`/admin/session/:id/print/bill|receipt`、`/admin/session/batch-delete`
+  `/admin/session/:id/settle`、`/admin/session/:id/move-table`、`/admin/session/:id/add-order`、`/admin/session/:id/refund-item`、
+  `/admin/session/:id/print/bill|receipt`、`/admin/session/batch-delete`
 - 桌台：`/admin/table`、`/admin/table/dashboard`、`/admin/table/:id/qrcode`
 - 类目/商品：`/admin/category`、`/admin/product`
 - 上传：`/admin/upload/image`
@@ -162,6 +163,8 @@ pnpm dev
 ### 已实现
 - 后台菜单权限（roleId + menuKeys）与路由拦截
 - 订单/会话聚合、结账、换桌（删除入口已在 UI 隐藏）
+- 后台订单详情加菜（直接生成新的下单记录）与合并清单退菜（不修改历史明细）
+- 加菜/退菜仅限未结账会话，已结账会话不可操作
 - 桌台管理与二维码生成（桌贴签名）
 - 购物车与订单创建流程（小程序端）
 - WS 实时更新（后台订单/桌台状态、小程序购物车）

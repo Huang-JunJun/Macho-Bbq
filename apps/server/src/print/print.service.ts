@@ -65,6 +65,27 @@ export class PrintService {
     return Array.from(map.values());
   }
 
+  private applyRefunds(
+    mergedItems: Array<{ productId: string; nameSnapshot: string; priceSnapshot: number; totalQty: number; lineTotal: number }>,
+    refunds: Array<{ productId: string; qty: number }>
+  ) {
+    const refundMap = new Map<string, number>();
+    for (const r of refunds) {
+      refundMap.set(r.productId, (refundMap.get(r.productId) ?? 0) + r.qty);
+    }
+    return mergedItems
+      .map((it) => {
+        const refunded = refundMap.get(it.productId) ?? 0;
+        const totalQty = Math.max(0, it.totalQty - refunded);
+        return {
+          ...it,
+          totalQty,
+          lineTotal: it.priceSnapshot * totalQty
+        };
+      })
+      .filter((it) => it.totalQty > 0);
+  }
+
   async buildKitchenTicket(orderId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -101,8 +122,9 @@ export class PrintService {
     const orders = session.orders;
     const firstOrderAt = orders[0]?.createdAt ?? session.createdAt;
     const lastOrderAt = orders[orders.length - 1]?.createdAt ?? firstOrderAt;
-    const mergedItems = this.mergeItems(orders);
-    const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
+    const refunds = await this.prisma.session_item_refund.findMany({ where: { sessionId } });
+    const mergedItems = this.applyRefunds(this.mergeItems(orders), refunds);
+    const totalAmount = mergedItems.reduce((sum, it) => sum + it.lineTotal, 0);
     const lines = [
       session.store?.name ?? '',
       '预结账清单',
@@ -126,8 +148,9 @@ export class PrintService {
     const orders = session.orders;
     const firstOrderAt = orders[0]?.createdAt ?? session.createdAt;
     const lastOrderAt = orders[orders.length - 1]?.createdAt ?? firstOrderAt;
-    const mergedItems = this.mergeItems(orders);
-    const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
+    const refunds = await this.prisma.session_item_refund.findMany({ where: { sessionId } });
+    const mergedItems = this.applyRefunds(this.mergeItems(orders), refunds);
+    const totalAmount = mergedItems.reduce((sum, it) => sum + it.lineTotal, 0);
     const settledAt = session.closedAt ? formatDateTimeCN(session.closedAt) : '-';
     const lines = [
       session.store?.name ?? '',

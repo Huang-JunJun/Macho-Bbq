@@ -379,6 +379,14 @@ export const adminApi = {
     );
     return data;
   },
+  async addSessionOrder(sessionId: string, req: { items: Array<{ productId: string; qty: number }> }) {
+    const { data } = await http.post<{ ok: true; orderId: string }>(`/admin/session/${sessionId}/add-order`, req);
+    return data;
+  },
+  async refundSessionItem(sessionId: string, req: { productId: string; qty: number }) {
+    const { data } = await http.post<{ ok: true }>(`/admin/session/${sessionId}/refund-item`, req);
+    return data;
+  },
   async printBill(sessionId: string) {
     const { data } = await http.post<{ ok: true }>(`/admin/session/${sessionId}/print/bill`);
     return data;

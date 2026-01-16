@@ -147,6 +147,156 @@ export class AdminSessionService {
     return { ok: true, sessionId, fromTableId: currentTableId, toTableId: result.toTableId };
   }
 
+  async addOrder(admin: AdminJwtUser, sessionId: string, items: Array<{ productId: string; qty: number }>) {
+    const storeId = admin.storeId;
+    const session = await this.prisma.dining_session.findFirst({
+      where: { id: sessionId, storeId, isDeleted: false },
+      include: { table: true }
+    });
+    if (!session) throw new NotFoundException('会话不存在');
+    if (session.status !== 'ACTIVE') throw new BadRequestException('该会话已结账');
+
+    const table = await this.prisma.table.findFirst({ where: { id: session.tableId, storeId } });
+    if (!table || table.isDeleted || !table.isActive || table.currentSessionId !== sessionId) {
+      throw new BadRequestException('会话无效');
+    }
+
+    const merged = new Map<string, number>();
+    for (const item of items ?? []) {
+      const productId = String(item.productId ?? '').trim();
+      const qty = Math.max(0, Math.floor(Number(item.qty ?? 0)));
+      if (!productId || qty <= 0) continue;
+      merged.set(productId, (merged.get(productId) ?? 0) + qty);
+    }
+    const normalized = Array.from(merged.entries()).map(([productId, qty]) => ({ productId, qty }));
+    if (normalized.length === 0) throw new BadRequestException('请先选择菜品');
+
+    const productIds = normalized.map((it) => it.productId);
+    const products = await this.prisma.product.findMany({ where: { id: { in: productIds }, storeId } });
+    const productMap = new Map(products.map((p) => [p.id, p]));
+
+    const invalidNames: string[] = [];
+    for (const item of normalized) {
+      const product = productMap.get(item.productId);
+      if (!product || !product.isOnSale || product.isSoldOut) {
+        invalidNames.push(product?.name ?? item.productId);
+      }
+    }
+    if (invalidNames.length) {
+      throw new BadRequestException(`以下商品已下架或售罄：${invalidNames.join('、')}`);
+    }
+
+    const orderItems = normalized.map((item) => {
+      const product = productMap.get(item.productId)!;
+      return {
+        productId: item.productId,
+        nameSnapshot: product.name,
+        priceSnapshot: product.price,
+        unitSnapshot: product.unit ?? '',
+        qty: item.qty
+      };
+    });
+    const amount = orderItems.reduce((sum, it) => sum + it.priceSnapshot * it.qty, 0);
+    const order = await this.prisma.order.create({
+      data: {
+        storeId,
+        tableId: session.tableId,
+        sessionId: session.id,
+        dinersCount: session.dinersCount,
+        amount,
+        items: { create: orderItems }
+      }
+    });
+
+    await this.ws.emitAdmin(storeId, {
+      type: 'order.created',
+      sessionId: session.id,
+      storeId,
+      tableId: session.tableId,
+      createdAt: order.createdAt
+    });
+    await this.print.enqueueKitchen(order.id);
+    return { ok: true, orderId: order.id };
+  }
+
+  async refundItem(admin: AdminJwtUser, sessionId: string, productId: string, qty: number) {
+    const storeId = admin.storeId;
+    const session = await this.prisma.dining_session.findFirst({
+      where: { id: sessionId, storeId, isDeleted: false },
+      include: { table: true }
+    });
+    if (!session) throw new NotFoundException('会话不存在');
+    if (session.status !== 'ACTIVE') throw new BadRequestException('该会话已结账');
+
+    const table = await this.prisma.table.findFirst({ where: { id: session.tableId, storeId } });
+    if (!table || table.isDeleted || !table.isActive || table.currentSessionId !== sessionId) {
+      throw new BadRequestException('会话无效');
+    }
+
+    const targetProductId = String(productId ?? '').trim();
+    const targetQty = Math.max(0, Math.floor(Number(qty ?? 0)));
+    if (!targetProductId || targetQty <= 0) throw new BadRequestException('退菜数量无效');
+
+    const orders = await this.prisma.order.findMany({
+      where: { sessionId, storeId, status: { not: 'CANCELLED' } },
+      include: { items: true },
+      orderBy: { createdAt: 'asc' }
+    });
+    if (orders.length === 0) throw new BadRequestException('该会话没有订单');
+
+    const mergedMap = new Map<
+      string,
+      { productId: string; nameSnapshot: string; priceSnapshot: number; totalQty: number }
+    >();
+    for (const o of orders) {
+      for (const item of o.items) {
+        const existing = mergedMap.get(item.productId);
+        if (existing) {
+          existing.totalQty += item.qty;
+        } else {
+          mergedMap.set(item.productId, {
+            productId: item.productId,
+            nameSnapshot: item.nameSnapshot,
+            priceSnapshot: item.priceSnapshot,
+            totalQty: item.qty
+          });
+        }
+      }
+    }
+
+    const target = mergedMap.get(targetProductId);
+    if (!target) throw new BadRequestException('该菜品不在合并清单中');
+
+    const refundRows = await this.prisma.session_item_refund.findMany({ where: { sessionId } });
+    const refundedQty = refundRows
+      .filter((r) => r.productId === targetProductId)
+      .reduce((sum, r) => sum + r.qty, 0);
+    const availableQty = target.totalQty - refundedQty;
+    if (availableQty <= 0) throw new BadRequestException('该菜品已全部退完');
+    if (targetQty > availableQty) throw new BadRequestException('退菜数量超过可退数量');
+
+    await this.prisma.session_item_refund.create({
+      data: {
+        storeId,
+        sessionId,
+        productId: targetProductId,
+        nameSnapshot: target.nameSnapshot,
+        priceSnapshot: target.priceSnapshot,
+        qty: targetQty,
+        adminUserId: admin.adminUserId
+      }
+    });
+
+    await this.ws.emitAdmin(storeId, {
+      type: 'session.refunded',
+      sessionId,
+      storeId,
+      tableId: session.tableId
+    });
+
+    return { ok: true };
+  }
+
   async batchDeleteSessions(admin: AdminJwtUser, sessionIds: string[]) {
     const storeId = admin.storeId;
     const ids = Array.from(new Set(sessionIds.map((id) => String(id).trim()).filter(Boolean)));

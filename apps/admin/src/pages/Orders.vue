@@ -152,6 +152,7 @@ onMounted(() => {
   adminWs.on('order.created', wsHandler);
   adminWs.on('session.settled', wsHandler);
   adminWs.on('session.moved', wsHandler);
+  adminWs.on('session.refunded', wsHandler);
   adminWs.onOpen(wsOpenHandler);
   adminWs.onClose(() => {});
 });
@@ -160,6 +161,7 @@ onUnmounted(() => {
   adminWs.off('order.created', wsHandler);
   adminWs.off('session.settled', wsHandler);
   adminWs.off('session.moved', wsHandler);
+  adminWs.off('session.refunded', wsHandler);
   adminWs.offOpen(wsOpenHandler);
   adminWs.disconnect();
 });

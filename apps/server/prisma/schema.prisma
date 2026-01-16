@@ -58,6 +58,7 @@ model store {
   products   product[]
   orders     order[]
   sessions   dining_session[]
+  sessionItemRefunds session_item_refund[]
   feedbacks  feedback[]
   tableMoveLogs table_move_log[]
   printers printer[]
@@ -82,6 +83,7 @@ model admin_user {
   printJobs print_job[]
   operatorLogs admin_action_log[] @relation("admin_action_operator")
   targetLogs admin_action_log[] @relation("admin_action_target")
+  sessionItemRefunds session_item_refund[]
 }
 
 model role {
@@ -167,6 +169,7 @@ model product {
   category category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   orderItems order_item[]
   cartItems cart_item[]
+  sessionItemRefunds session_item_refund[]
 
   @@index([storeId, categoryId])
 }
@@ -225,6 +228,7 @@ model dining_session {
   table  table  @relation(fields: [tableId], references: [id], onDelete: Cascade)
   orders order[]
   cartItems cart_item[]
+  refundItems session_item_refund[]
   printJobs print_job[]
 
   @@index([storeId, tableId, status, createdAt])
@@ -263,6 +267,27 @@ model cart_item {
 
   @@unique([sessionId, productId])
   @@index([sessionId])
+}
+
+model session_item_refund {
+  id            String   @id @default(cuid())
+  storeId       String
+  sessionId     String
+  productId     String
+  nameSnapshot  String
+  priceSnapshot Int
+  qty           Int
+  adminUserId   String
+  createdAt     DateTime @default(now())
+
+  store   store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  session dining_session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  product product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  admin   admin_user    @relation(fields: [adminUserId], references: [id], onDelete: Restrict)
+
+  @@index([sessionId, createdAt])
+  @@index([storeId, createdAt])
+  @@index([productId])
 }
 
 model mp_user {

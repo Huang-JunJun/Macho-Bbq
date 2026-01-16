@@ -10,6 +10,8 @@ import { AdminSessionService } from './admin-session.service';
 import { PrintService } from '../../print/print.service';
 import { MoveTableDto } from './dto/move-table.dto';
 import { BatchDeleteSessionDto } from './dto/batch-delete.dto';
+import { AddSessionItemsDto } from './dto/add-items.dto';
+import { RefundItemDto } from './dto/refund-item.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard, MenuGuard)
 @MenuPermission('orders')
@@ -52,6 +54,24 @@ export class AdminSessionController {
     if (!session.closedAt) throw new NotFoundException('结账时间缺失');
     await this.print.enqueueReceipt(sessionId, admin.adminUserId, admin.email, 'manual');
     return { ok: true };
+  }
+
+  @Post(':sessionId/add-order')
+  async addOrder(
+    @CurrentAdmin() admin: AdminJwtUser,
+    @Param('sessionId') sessionId: string,
+    @Body() dto: AddSessionItemsDto
+  ) {
+    return this.sessionService.addOrder(admin, sessionId, dto.items);
+  }
+
+  @Post(':sessionId/refund-item')
+  async refundItem(
+    @CurrentAdmin() admin: AdminJwtUser,
+    @Param('sessionId') sessionId: string,
+    @Body() dto: RefundItemDto
+  ) {
+    return this.sessionService.refundItem(admin, sessionId, dto.productId, dto.qty);
   }
 
   @Post('batch-delete')
