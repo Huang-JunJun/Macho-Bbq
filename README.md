@@ -25,9 +25,9 @@ apps/
 ## 功能模块清单
 ### Admin（后台）
 - 登录、无权限页（/login、/403）
-- 订单管理（会话聚合列表、详情弹窗、结账、换桌、批量删除）
+- 订单管理（会话聚合列表、详情弹窗、结账、换桌）
 - 桌台管理（桌台状态面板、桌台 CRUD、桌贴二维码）
-- 商品管理（类目/商品 CRUD、图片上传与预览）
+- 商品管理（类目/商品 CRUD、单图上传与预览，不展示图片地址）
 - 运营/反馈
 - 系统管理（门店、员工、角色、打印）
 - WebSocket 实时刷新（订单/会话）
@@ -103,6 +103,7 @@ apps/
 - `.env.development/.env.production`：`VITE_API_BASE_URL`、`VITE_PUBLIC_BASE_URL`、`VITE_WS_BASE_URL`、
   `VITE_DEFAULT_STORE_ID`、`VITE_DEFAULT_TABLE_ID`、`VITE_STORE_PHONE`
 - 请求 baseURL 来自 `config/env.ts`，WebSocket 基于 `WS_BASE_URL`。
+- 小程序端运行时从 `__MP_ENV__`/`import.meta.env` 读取环境变量（构建注入）。
 
 ### apps/print-agent
 - `.env.example`：`SERVER_BASE_URL`、`PRINTER_ID`、`AGENT_KEY`、`WINDOWS_PRINTER_NAME`、`POLL_INTERVAL_MS` 等。
@@ -160,13 +161,14 @@ pnpm dev
 ## 已实现能力清单 / 待办
 ### 已实现
 - 后台菜单权限（roleId + menuKeys）与路由拦截
-- 订单/会话聚合、结账、换桌、批量删除
+- 订单/会话聚合、结账、换桌（删除入口已在 UI 隐藏）
 - 桌台管理与二维码生成（桌贴签名）
 - 购物车与订单创建流程（小程序端）
 - WS 实时更新（后台订单/桌台状态、小程序购物车）
 - 打印任务与 Windows 打印代理
 - 图片上传与相对路径存储、前端 PUBLIC_BASE_URL 统一拼接
 - 反馈收集与后台查看
+- 后台站点 favicon 使用 logo（`apps/admin/public/logo.jpg`）
 
 ### 待办/未确认
 - 部署相关配置（docker-compose/nginx/生产部署文档）未在仓库扫描中发现

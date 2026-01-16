@@ -95,11 +95,17 @@ async function reload() {
   console.log('storeId', storeId);
   if (!storeId) return;
   const res = await api.getStoreInfo(storeId);
+  console.log('res', res);
+
   store.value = res.store as any;
 }
 
 onLoad(() => {
-  reload().catch(() => null);
+  reload().catch((err) => {
+    console.log('VITE_API_BASE_URL', (import.meta as any)?.env?.VITE_API_BASE_URL);
+    console.error('reload failed:', err);
+    uni.showToast({ title: '加载门店失败', icon: 'none' });
+  });
 });
 </script>
 

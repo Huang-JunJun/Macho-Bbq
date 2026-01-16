@@ -17,7 +17,7 @@
           style="width: 360px"
         />
         <el-button @click="reload">刷新</el-button>
-        <el-button v-if="isOwner" type="danger" :disabled="selectedIds.length === 0" @click="batchRemove">批量删除</el-button>
+        <!-- 删除功能隐藏 -->
       </div>
     </template>
 
@@ -47,10 +47,9 @@
       <el-table-column label="结账时间" min-width="180">
         <template #default="{ row }">{{ row.settledAt ? formatDateTime(row.settledAt) : '-' }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="160">
+      <el-table-column label="操作" width="120">
         <template #default="{ row }">
           <el-button size="small" @click="openDetail(row.sessionId)">详情</el-button>
-          <el-button v-if="isOwner" size="small" type="danger" @click="removeOne(row.sessionId)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>

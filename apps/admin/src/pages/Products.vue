@@ -107,48 +107,21 @@
         <el-input-number v-model="form.sort" :min="0" />
       </el-form-item>
       <el-form-item label="图片">
-        <div style="display: flex; gap: 12px; align-items: center">
-          <el-upload :show-file-list="false" :http-request="uploadRequest">
-            <el-button :loading="uploading">上传</el-button>
-          </el-upload>
-          <el-input v-model="form.imageUrl" placeholder="imageUrl" />
-        </div>
-      </el-form-item>
-      <el-form-item v-if="form.imageUrl" label="预览">
-        <el-image :src="resolvePublicUrl(form.imageUrl)" style="width: 120px; height: 120px" fit="cover">
-          <template #placeholder>
-            <div
-              style="
-                width: 120px;
-                height: 120px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: #909399;
-                font-size: 12px;
-                border: 1px solid #ebeef5;
-              "
-            >
-              加载中
-            </div>
-          </template>
-          <template #error>
-            <div
-              style="
-                width: 120px;
-                height: 120px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: #909399;
-                font-size: 12px;
-                border: 1px solid #ebeef5;
-              "
-            >
-              加载失败
-            </div>
-          </template>
-        </el-image>
+        <el-upload
+          ref="uploadRef"
+          class="image-uploader"
+          :show-file-list="false"
+          :http-request="uploadRequest"
+          :limit="1"
+          :on-exceed="handleExceed"
+          accept="image/*"
+          auto-upload
+        >
+          <div class="image-uploader__box">
+            <img v-if="form.imageUrl" :src="resolvePublicUrl(form.imageUrl)" class="image-uploader__img" />
+            <div v-else class="image-uploader__plus">+</div>
+          </div>
+        </el-upload>
       </el-form-item>
     </el-form>
     <template #footer>
@@ -160,7 +133,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage, ElMessageBox, genFileId, type UploadInstance, type UploadProps, type UploadRawFile } from 'element-plus';
 import { adminApi, type Category, type Product } from '../api/admin';
 import { resolvePublicUrl } from '../common/url';
 
@@ -172,6 +145,7 @@ const products = ref<Product[]>([]);
 const categories = ref<Category[]>([]);
 
 const visible = ref(false);
+const uploadRef = ref<UploadInstance>();
 	const mode = ref<'create' | 'edit'>('create');
 	const editId = ref('');
 	  const form = reactive({
@@ -297,6 +271,8 @@ async function uploadRequest(options: any) {
     const res = await adminApi.uploadImage(file);
     form.imageUrl = res.url;
     ElMessage.success('上传成功');
+    console.log('resolvePublicUrl(form.imageUrl)', resolvePublicUrl(form.imageUrl));
+
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message ?? '上传失败');
   } finally {
@@ -304,5 +280,48 @@ async function uploadRequest(options: any) {
   }
 }
 
+const handleExceed: UploadProps['onExceed'] = (files) => {
+  const file = files[0];
+  if (!file) return;
+  uploadRef.value?.clearFiles();
+  const raw = file as UploadRawFile;
+  raw.uid = genFileId();
+  uploadRef.value?.handleStart(raw);
+  uploadRef.value?.submit();
+};
+
 onMounted(reload);
 </script>
+
+<style scoped>
+.image-uploader {
+  display: inline-block;
+}
+.image-uploader__box {
+  width: 120px;
+  height: 120px;
+  border: 1px dashed #dcdfe6;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+.image-uploader__box:hover {
+  border-color: #409eff;
+}
+.image-uploader__plus {
+  font-size: 32px;
+  line-height: 1;
+  color: #c0c4cc;
+}
+.image-uploader__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+</style>
