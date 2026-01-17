@@ -6,6 +6,8 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.server
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:18-alpine}
     env_file:
       - ./env/.env.server
     volumes:

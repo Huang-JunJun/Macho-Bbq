@@ -19,3 +19,4 @@ apps/mp/.env*
 *.crt
 *.pfx
 *.p12
+*.tsbuildinfo
