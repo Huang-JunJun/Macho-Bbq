@@ -1,6 +1,24 @@
 version: "3.9"
 
 services:
+  mysql:
+    container_name: bbq-mysql
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-bbq_miniapp}
+      TZ: ${TZ:-Asia/Shanghai}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - bbq_mysql_data:/var/lib/mysql
+    networks:
+      - bbq-net
+
   bbq-server:
     container_name: bbq-server
     build:
@@ -8,6 +26,8 @@ services:
       dockerfile: deploy/Dockerfile.server
       args:
         NODE_IMAGE: ${NODE_IMAGE:-node:18-alpine}
+    depends_on:
+      - mysql
     env_file:
       - ./env/.env.server
     volumes:
@@ -36,3 +56,6 @@ services:
 networks:
   bbq-net:
     name: bbq-net
+
+volumes:
+  bbq_mysql_data:
