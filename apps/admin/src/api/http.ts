@@ -1,8 +1,13 @@
 import axios from 'axios';
 import { useAuthStore } from '../stores/auth';
 
+const env = import.meta.env as Record<string, string | undefined>;
+const rawBase = String(env.VITE_API_BASE_URL ?? '').trim();
+const mode = String(env.MODE ?? '');
+const baseURL = rawBase || (mode === 'production' ? 'https://www.wjlbbq.online/api' : '/api');
+
 export const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL,
   timeout: 15000
 });
 

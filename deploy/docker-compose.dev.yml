@@ -1,0 +1,6 @@
+version: "3.9"
+
+services:
+  bbq-server:
+    ports:
+      - "3000:3000"

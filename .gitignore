@@ -5,3 +5,17 @@ dist
 apps/server/uploads/*
 !apps/server/uploads/.gitkeep
 *.log
+deploy/env/.env.*
+!deploy/env/.env.*.example
+deploy/ssl/**
+deploy/data/html/**
+deploy/data/uploads/**
+apps/server/.env
+apps/admin/.env
+apps/mp/.env*
+!apps/mp/.env.example
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
