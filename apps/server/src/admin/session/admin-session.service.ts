@@ -297,6 +297,65 @@ export class AdminSessionService {
     return { ok: true };
   }
 
+  async setDiscount(admin: AdminJwtUser, sessionId: string, type: 'PERCENT' | 'AMOUNT', value: number) {
+    const session = await this.getSession(admin.storeId, sessionId);
+    if (session.status !== 'ACTIVE') throw new BadRequestException('该会话已结账，无法修改折扣');
+
+    const rawValue = Math.floor(Number(value ?? 0));
+    if (type === 'PERCENT') {
+      if (rawValue < 1 || rawValue > 100) throw new BadRequestException('折扣率需在 1%~100% 之间');
+    } else if (type === 'AMOUNT') {
+      if (rawValue < 0) throw new BadRequestException('立减金额不能为负数');
+    } else {
+      throw new BadRequestException('折扣类型无效');
+    }
+
+    await this.prisma.dining_session.update({
+      where: { id: sessionId },
+      data: { discountType: type, discountValue: rawValue }
+    });
+
+    await this.ws.emitAdmin(admin.storeId, {
+      type: 'session.discount.updated',
+      sessionId,
+      storeId: admin.storeId,
+      tableId: session.tableId
+    });
+    await this.ws.emitMp(sessionId, {
+      type: 'session.discount.updated',
+      sessionId,
+      storeId: admin.storeId,
+      tableId: session.tableId
+    });
+
+    return { ok: true };
+  }
+
+  async clearDiscount(admin: AdminJwtUser, sessionId: string) {
+    const session = await this.getSession(admin.storeId, sessionId);
+    if (session.status !== 'ACTIVE') throw new BadRequestException('该会话已结账，无法修改折扣');
+
+    await this.prisma.dining_session.update({
+      where: { id: sessionId },
+      data: { discountType: null, discountValue: null }
+    });
+
+    await this.ws.emitAdmin(admin.storeId, {
+      type: 'session.discount.cleared',
+      sessionId,
+      storeId: admin.storeId,
+      tableId: session.tableId
+    });
+    await this.ws.emitMp(sessionId, {
+      type: 'session.discount.cleared',
+      sessionId,
+      storeId: admin.storeId,
+      tableId: session.tableId
+    });
+
+    return { ok: true };
+  }
+
   async batchDeleteSessions(admin: AdminJwtUser, sessionIds: string[]) {
     const storeId = admin.storeId;
     const ids = Array.from(new Set(sessionIds.map((id) => String(id).trim()).filter(Boolean)));

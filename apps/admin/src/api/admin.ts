@@ -146,6 +146,33 @@ export type PrintJob = {
   updatedAt: string;
 };
 
+export type StatsSummary = {
+  revenue: number;
+  originalRevenue: number;
+  discountTotal: number;
+  orderCount: number;
+  avgOrderAmount: number;
+  tableCount: number;
+};
+
+export type StatsTrend = {
+  dates: string[];
+  revenue: number[];
+  original: number[];
+  discount: number[];
+  orderCount: number[];
+  avgOrder: number[];
+};
+
+export type StatsOverview = {
+  summary: StatsSummary;
+  trend: StatsTrend;
+  heatmap: Array<[number, number, number]>;
+  topTables: Array<{ tableId: string; tableName: string; count: number; revenue: number }>;
+  topProducts: Array<{ productId: string; name: string; qty: number; revenue: number }>;
+  categoryPie: Array<{ categoryId: string; name: string; revenue: number }>;
+};
+
 export type OrderSessionRow = {
   sessionId: string;
   tableId: string;
@@ -172,6 +199,11 @@ export type OrderSessionDetail = {
     orderCount: number;
   };
   totalAmount: number;
+  originalTotal: number;
+  discountType?: 'PERCENT' | 'AMOUNT' | null;
+  discountValue?: number | null;
+  discountAmount: number;
+  payableTotal: number;
   mergedItems: Array<{
     productId: string;
     nameSnapshot: string;
@@ -387,12 +419,24 @@ export const adminApi = {
     const { data } = await http.post<{ ok: true }>(`/admin/session/${sessionId}/refund-item`, req);
     return data;
   },
+  async setSessionDiscount(sessionId: string, req: { type: 'PERCENT' | 'AMOUNT'; value: number }) {
+    const { data } = await http.put<{ ok: true }>(`/admin/session/${sessionId}/discount`, req);
+    return data;
+  },
+  async clearSessionDiscount(sessionId: string) {
+    const { data } = await http.delete<{ ok: true }>(`/admin/session/${sessionId}/discount`);
+    return data;
+  },
   async printBill(sessionId: string) {
     const { data } = await http.post<{ ok: true }>(`/admin/session/${sessionId}/print/bill`);
     return data;
   },
   async printReceipt(sessionId: string) {
     const { data } = await http.post<{ ok: true }>(`/admin/session/${sessionId}/print/receipt`);
+    return data;
+  },
+  async getStats(params?: { startAt?: string; endAt?: string }) {
+    const { data } = await http.get<StatsOverview>('/admin/stats', { params: params ?? {} });
     return data;
   },
 

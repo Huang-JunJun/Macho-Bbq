@@ -98,7 +98,11 @@ async function save() {
 
 async function remove(row: Category) {
   try {
-    await ElMessageBox.confirm(`删除类目：${row.name}？`, '确认', { type: 'warning' });
+    await ElMessageBox.confirm(`删除类目：${row.name}？`, '确认', {
+      type: 'warning',
+      confirmButtonText: '确认',
+      cancelButtonText: '取消'
+    });
     await adminApi.deleteCategory(row.id);
     await reload();
   } catch (e: any) {
@@ -109,4 +113,3 @@ async function remove(row: Category) {
 
 onMounted(reload);
 </script>
-

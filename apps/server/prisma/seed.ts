@@ -40,6 +40,7 @@ async function main() {
     'tables',
     'categories',
     'products',
+    'stats',
     'feedback',
     'store',
     'staff',

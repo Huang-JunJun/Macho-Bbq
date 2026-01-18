@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException, UnauthorizedExcepti
 import { PrismaService } from '../prisma/prisma.service';
 import { formatDateTimeCN } from '../common/datetime';
 import { randomBytes } from 'crypto';
+import { calcDiscount } from '../common/discount';
 
 @Injectable()
 export class PrintService {
@@ -124,7 +125,12 @@ export class PrintService {
     const lastOrderAt = orders[orders.length - 1]?.createdAt ?? firstOrderAt;
     const refunds = await this.prisma.session_item_refund.findMany({ where: { sessionId } });
     const mergedItems = this.applyRefunds(this.mergeItems(orders), refunds);
-    const totalAmount = mergedItems.reduce((sum, it) => sum + it.lineTotal, 0);
+    const originalTotal = mergedItems.reduce((sum, it) => sum + it.lineTotal, 0);
+    const { discountAmount, payableTotal } = calcDiscount(
+      originalTotal,
+      session.discountType as any,
+      session.discountValue as any
+    );
     const lines = [
       session.store?.name ?? '',
       '预结账清单',
@@ -139,7 +145,13 @@ export class PrintService {
       lines.push(`${item.nameSnapshot}  x${item.totalQty}  ${this.formatAmount(item.lineTotal)}`);
     }
     lines.push('-------------------------------');
-    lines.push(`合计：${this.formatAmount(totalAmount)}`);
+    if (discountAmount > 0) {
+      lines.push(`原价：${this.formatAmount(originalTotal)}`);
+      lines.push(`订单折扣：-${this.formatAmount(discountAmount)}`);
+      lines.push(`合计：${this.formatAmount(payableTotal)}`);
+    } else {
+      lines.push(`合计：${this.formatAmount(originalTotal)}`);
+    }
     return { content: this.buildLines(lines), storeId: session.storeId, sessionId: session.id };
   }
 
@@ -150,7 +162,12 @@ export class PrintService {
     const lastOrderAt = orders[orders.length - 1]?.createdAt ?? firstOrderAt;
     const refunds = await this.prisma.session_item_refund.findMany({ where: { sessionId } });
     const mergedItems = this.applyRefunds(this.mergeItems(orders), refunds);
-    const totalAmount = mergedItems.reduce((sum, it) => sum + it.lineTotal, 0);
+    const originalTotal = mergedItems.reduce((sum, it) => sum + it.lineTotal, 0);
+    const { discountAmount, payableTotal } = calcDiscount(
+      originalTotal,
+      session.discountType as any,
+      session.discountValue as any
+    );
     const settledAt = session.closedAt ? formatDateTimeCN(session.closedAt) : '-';
     const lines = [
       session.store?.name ?? '',
@@ -168,7 +185,13 @@ export class PrintService {
       lines.push(`${item.nameSnapshot}  x${item.totalQty}  ${this.formatAmount(item.lineTotal)}`);
     }
     lines.push('-------------------------------');
-    lines.push(`合计：${this.formatAmount(totalAmount)}`);
+    if (discountAmount > 0) {
+      lines.push(`原价：${this.formatAmount(originalTotal)}`);
+      lines.push(`订单折扣：-${this.formatAmount(discountAmount)}`);
+      lines.push(`合计：${this.formatAmount(payableTotal)}`);
+    } else {
+      lines.push(`合计：${this.formatAmount(originalTotal)}`);
+    }
     return { content: this.buildLines(lines), storeId: session.storeId, sessionId: session.id };
   }
 

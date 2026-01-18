@@ -41,7 +41,10 @@ export const MENU_GROUPS: MenuGroup[] = [
     id: 'ops',
     label: '运营',
     sort: 4,
-    items: [{ key: 'feedback', label: '反馈', path: '/feedback', sort: 1 }]
+    items: [
+      { key: 'stats', label: '统计图表', path: '/stats', sort: 1 },
+      { key: 'feedback', label: '反馈', path: '/feedback', sort: 2 }
+    ]
   },
   {
     id: 'system',

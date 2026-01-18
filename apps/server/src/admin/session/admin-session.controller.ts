@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, NotFoundException, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, NotFoundException, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { RolesGuard } from '../../auth/roles.guard';
@@ -12,6 +12,7 @@ import { MoveTableDto } from './dto/move-table.dto';
 import { BatchDeleteSessionDto } from './dto/batch-delete.dto';
 import { AddSessionItemsDto } from './dto/add-items.dto';
 import { RefundItemDto } from './dto/refund-item.dto';
+import { SessionDiscountDto } from './dto/discount.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard, MenuGuard)
 @MenuPermission('orders')
@@ -72,6 +73,20 @@ export class AdminSessionController {
     @Body() dto: RefundItemDto
   ) {
     return this.sessionService.refundItem(admin, sessionId, dto.productId, dto.qty);
+  }
+
+  @Put(':sessionId/discount')
+  async setDiscount(
+    @CurrentAdmin() admin: AdminJwtUser,
+    @Param('sessionId') sessionId: string,
+    @Body() dto: SessionDiscountDto
+  ) {
+    return this.sessionService.setDiscount(admin, sessionId, dto.type, dto.value);
+  }
+
+  @Delete(':sessionId/discount')
+  async clearDiscount(@CurrentAdmin() admin: AdminJwtUser, @Param('sessionId') sessionId: string) {
+    return this.sessionService.clearDiscount(admin, sessionId);
   }
 
   @Post('batch-delete')

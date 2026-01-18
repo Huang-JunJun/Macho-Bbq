@@ -141,7 +141,11 @@ async function showQrcode(row: Table) {
 
 async function remove(row: Table) {
   try {
-    await ElMessageBox.confirm(`删除桌台：${row.name}？`, '确认', { type: 'warning' });
+    await ElMessageBox.confirm(`删除桌台：${row.name}？`, '确认', {
+      type: 'warning',
+      confirmButtonText: '确认',
+      cancelButtonText: '取消'
+    });
     await adminApi.deleteTable(row.id);
     ElMessage.success('已删除');
     await reload();

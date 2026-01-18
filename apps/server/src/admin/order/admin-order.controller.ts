@@ -9,6 +9,7 @@ import { AdminJwtUser } from '../../auth/jwt.strategy';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdminOrderListQueryDto } from './dto/admin-order-list-query.dto';
 import { AdminSessionService } from '../session/admin-session.service';
+import { calcDiscount } from '../../common/discount';
 
 @UseGuards(JwtAuthGuard, RolesGuard, MenuGuard)
 @MenuPermission('orders')
@@ -150,7 +151,13 @@ export class AdminOrderController {
         };
       })
       .filter((it) => it.totalQty > 0);
-    const totalAmount = mergedItems.reduce((sum, it) => sum + it.lineTotal, 0);
+    const originalTotal = mergedItems.reduce((sum, it) => sum + it.lineTotal, 0);
+    const totalAmount = originalTotal;
+    const { discountAmount, payableTotal } = calcDiscount(
+      originalTotal,
+      session.discountType as any,
+      session.discountValue as any
+    );
     const detailOrders = orders.map((o, index) => ({
       orderId: o.id,
       seqNo: index + 1,
@@ -179,6 +186,11 @@ export class AdminOrderController {
         orderCount: orders.length
       },
       totalAmount,
+      originalTotal,
+      discountType: session.discountType,
+      discountValue: session.discountValue,
+      discountAmount,
+      payableTotal,
       mergedItems,
       orders: detailOrders
     };

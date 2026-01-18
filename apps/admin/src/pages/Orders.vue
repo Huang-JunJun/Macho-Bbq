@@ -196,7 +196,11 @@ function onSelectionChange(rows: OrderSessionRow[]) {
 
 async function removeOne(sessionId: string) {
   try {
-    await ElMessageBox.confirm('确认删除该会话订单？', '确认', { type: 'warning' });
+    await ElMessageBox.confirm('确认删除该会话订单？', '确认', {
+      type: 'warning',
+      confirmButtonText: '确认',
+      cancelButtonText: '取消'
+    });
     await adminApi.batchDeleteSessions([sessionId]);
     ElMessage.success('已删除');
     await reload();
@@ -209,7 +213,11 @@ async function removeOne(sessionId: string) {
 async function batchRemove() {
   if (selectedIds.value.length === 0) return;
   try {
-    await ElMessageBox.confirm(`确认删除 ${selectedIds.value.length} 个会话订单？`, '确认', { type: 'warning' });
+    await ElMessageBox.confirm(`确认删除 ${selectedIds.value.length} 个会话订单？`, '确认', {
+      type: 'warning',
+      confirmButtonText: '确认',
+      cancelButtonText: '取消'
+    });
     await adminApi.batchDeleteSessions(selectedIds.value);
     ElMessage.success('已删除');
     await reload();

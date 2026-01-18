@@ -10,7 +10,7 @@ import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableDto } from './dto/update-table.dto';
 import { ConfigService } from '@nestjs/config';
 import { signTable } from '../../common/crypto';
-import * as QRCode from 'qrcode';
+import { MiniappCodeService } from '../../common/miniapp-code.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard, MenuGuard)
 @MenuPermission('tables')
@@ -18,7 +18,8 @@ import * as QRCode from 'qrcode';
 export class AdminTableController {
   constructor(
     private prisma: PrismaService,
-    private config: ConfigService
+    private config: ConfigService,
+    private miniappCode: MiniappCodeService
   ) {}
 
   @Post()
@@ -153,7 +154,7 @@ export class AdminTableController {
     const content = `pages/scan/index?storeId=${encodeURIComponent(admin.storeId)}&tableId=${encodeURIComponent(
       table.id
     )}&sign=${encodeURIComponent(sign)}`;
-    const base64 = await QRCode.toDataURL(content, { type: 'image/png' });
+    const base64 = await this.miniappCode.getWxacode(content);
     return { content, base64 };
   }
 }

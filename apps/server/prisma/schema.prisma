@@ -23,6 +23,11 @@ enum DiningSessionStatus {
   CLOSED
 }
 
+enum SessionDiscountType {
+  PERCENT
+  AMOUNT
+}
+
 enum PrinterProvider {
   USB_AGENT
 }
@@ -219,6 +224,8 @@ model dining_session {
   tableId     String
   status      DiningSessionStatus @default(ACTIVE)
   dinersCount Int
+  discountType SessionDiscountType?
+  discountValue Int?
   isDeleted   Boolean             @default(false)
   cartVersion Int                @default(0)
   createdAt   DateTime            @default(now())

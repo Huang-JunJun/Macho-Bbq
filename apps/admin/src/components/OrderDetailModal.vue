@@ -9,7 +9,15 @@
         <el-descriptions-item label="下单时间">{{ formatDateTime(detail.session.createdAt) }}</el-descriptions-item>
         <el-descriptions-item label="最后加菜时间">{{ formatDateTime(detail.session.lastOrderAt) }}</el-descriptions-item>
         <el-descriptions-item label="结账时间">{{ detail.session.settledAt ? formatDateTime(detail.session.settledAt) : '-' }}</el-descriptions-item>
-        <el-descriptions-item label="合计金额(元)">￥{{ yuan(detail.totalAmount) }}</el-descriptions-item>
+        <el-descriptions-item label="合计金额(元)">
+          <div v-if="hasDiscount" style="display: flex; flex-direction: column; gap: 4px">
+            <div style="font-weight: 700">￥{{ yuan(detail.payableTotal) }}</div>
+            <div style="color: #909399; font-size: 12px">
+              原价：￥{{ yuan(detail.originalTotal) }} 折扣：-￥{{ yuan(detail.discountAmount) }}
+            </div>
+          </div>
+          <div v-else>￥{{ yuan(detail.totalAmount) }}</div>
+        </el-descriptions-item>
       </el-descriptions>
 
       <div style="margin-top: 16px; font-weight: 700">分次明细</div>
@@ -40,24 +48,37 @@
       </div>
 
       <div style="margin-top: 12px; font-weight: 700">合并清单</div>
-      <el-table :data="detail.mergedItems" style="width: 100%; margin-top: 8px">
+      <el-table :data="mergedRows" style="width: 100%; margin-top: 8px">
         <el-table-column prop="nameSnapshot" label="名称" />
         <el-table-column label="单价(元)" width="120">
-          <template #default="{ row }">￥{{ yuan(row.priceSnapshot) }}</template>
+          <template #default="{ row }">
+            <span v-if="row.isDiscount">-</span>
+            <span v-else>￥{{ yuan(row.priceSnapshot) }}</span>
+          </template>
         </el-table-column>
-        <el-table-column prop="totalQty" label="数量" width="100" />
+        <el-table-column label="数量" width="100">
+          <template #default="{ row }">
+            <span v-if="row.isDiscount">-</span>
+            <span v-else>{{ row.totalQty }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="小计(元)" width="140">
-          <template #default="{ row }">￥{{ yuan(row.lineTotal) }}</template>
+          <template #default="{ row }">
+            <span v-if="row.isDiscount">-￥{{ yuan(Math.abs(row.lineTotal)) }}</span>
+            <span v-else>￥{{ yuan(row.lineTotal) }}</span>
+          </template>
         </el-table-column>
         <el-table-column label="操作" width="120">
           <template #default="{ row }">
-            <el-button size="small" :disabled="detail?.session.status !== 'ACTIVE'" @click="openRefund(row)">退菜</el-button>
+            <el-button v-if="!row.isDiscount" size="small" :disabled="detail?.session.status !== 'ACTIVE'" @click="openRefund(row)"
+              >退菜</el-button
+            >
           </template>
         </el-table-column>
       </el-table>
 
       <div style="display: flex; justify-content: flex-end; margin-top: 10px; font-weight: 700">
-        合计：￥{{ yuan(detail.totalAmount) }}
+        合计：￥{{ yuan(hasDiscount ? detail.payableTotal : detail.totalAmount) }}
       </div>
     </div>
     <div v-else style="color: #909399">加载中</div>
@@ -68,6 +89,9 @@
         <el-button v-if="detail?.session.status === 'CLOSED'" @click="printReceipt">补打凭证</el-button>
         <el-button v-if="detail?.session.status === 'ACTIVE' && isOwner" @click="openMove">换桌</el-button>
         <el-button v-if="detail?.session.status === 'ACTIVE'" @click="openAddItems">加菜</el-button>
+        <el-tooltip content="已结账不可修改" :disabled="detail?.session.status === 'ACTIVE'">
+          <el-button :disabled="detail?.session.status !== 'ACTIVE'" @click="openDiscount">订单折扣</el-button>
+        </el-tooltip>
         <el-button v-if="detail?.session.status === 'ACTIVE'" type="primary" @click="settleCurrent">结账</el-button>
       </div>
     </template>
@@ -151,6 +175,51 @@
       </div>
     </template>
   </el-dialog>
+
+  <el-dialog v-model="discountVisible" title="订单折扣" width="420px" @closed="resetDiscount">
+    <div style="display: flex; flex-direction: column; gap: 16px">
+      <div style="font-weight: 700">折扣方式</div>
+      <el-radio-group v-model="discountMode">
+        <el-radio label="PERCENT">按折扣</el-radio>
+        <el-radio label="AMOUNT">按金额立减</el-radio>
+      </el-radio-group>
+
+      <div v-if="discountMode === 'PERCENT'" style="display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <el-button
+            v-for="rate in discountPresets"
+            :key="rate"
+            size="small"
+            :type="discountRate === rate ? 'primary' : 'default'"
+            @click="discountRate = rate"
+          >
+            {{ rate }}%
+          </el-button>
+        </div>
+        <el-input-number v-model="discountRate" :min="1" :max="100" :step="1" />
+      </div>
+
+      <div v-else style="display: flex; flex-direction: column; gap: 12px">
+        <el-input-number v-model="discountMinusYuan" :min="0" :max="previewOriginalYuan" :step="0.1" :precision="2" />
+        <div style="color: #909399; font-size: 12px">立减金额不能超过原价</div>
+      </div>
+
+      <div style="border: 1px solid #ebeef5; border-radius: 8px; padding: 10px; color: #606266">
+        <div>原价：￥{{ yuan(previewOriginal) }}</div>
+        <div>折扣：-￥{{ yuan(previewDiscount) }}</div>
+        <div style="font-weight: 700">应付：￥{{ yuan(previewPayable) }}</div>
+      </div>
+    </div>
+    <template #footer>
+      <div style="display: flex; justify-content: space-between; gap: 8px">
+        <el-button v-if="hasDiscountConfig" type="danger" @click="clearDiscount">清除折扣</el-button>
+        <div style="display: flex; gap: 8px; margin-left: auto">
+          <el-button @click="discountVisible = false">取消</el-button>
+          <el-button type="primary" :loading="discountSubmitting" @click="submitDiscount">确认</el-button>
+        </div>
+      </div>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -186,6 +255,12 @@ const refundVisible = ref(false);
 const refundSubmitting = ref(false);
 const refundQty = ref(1);
 const refundTarget = ref<{ productId: string; nameSnapshot: string; maxQty: number } | null>(null);
+const discountVisible = ref(false);
+const discountSubmitting = ref(false);
+const discountMode = ref<'PERCENT' | 'AMOUNT'>('PERCENT');
+const discountRate = ref(100);
+const discountMinusYuan = ref(0);
+const discountPresets = [100, 98, 95, 90, 88, 80];
 
 const visible = computed({
   get: () => props.modelValue,
@@ -203,9 +278,44 @@ function yuan(cents: number) {
   return (cents / 100).toFixed(2);
 }
 
+function toCents(amount: number) {
+  return Math.max(0, Math.round(Number(amount ?? 0) * 100));
+}
+
 function statusLabel(s: OrderSessionStatus) {
   return s === 'ACTIVE' ? '已下单' : '已结账';
 }
+
+const hasDiscount = computed(() => (detail.value?.discountAmount ?? 0) > 0);
+const hasDiscountConfig = computed(() => Boolean(detail.value?.discountType));
+
+const mergedRows = computed(() => {
+  if (!detail.value) return [];
+  const rows = detail.value.mergedItems.map((it) => ({ ...it, isDiscount: false }));
+  if (detail.value.discountAmount > 0) {
+    rows.push({
+      productId: '__discount__',
+      nameSnapshot: '订单折扣',
+      priceSnapshot: 0,
+      totalQty: 0,
+      lineTotal: -detail.value.discountAmount,
+      isDiscount: true
+    });
+  }
+  return rows;
+});
+
+const previewOriginal = computed(() => detail.value?.originalTotal ?? detail.value?.totalAmount ?? 0);
+const previewOriginalYuan = computed(() => Math.max(0, Number((previewOriginal.value / 100).toFixed(2))));
+const previewDiscount = computed(() => {
+  const original = previewOriginal.value;
+  if (discountMode.value === 'PERCENT') {
+    const rate = Math.min(100, Math.max(1, Math.floor(discountRate.value)));
+    return Math.round((original * (100 - rate)) / 100);
+  }
+  return Math.min(toCents(discountMinusYuan.value), original);
+});
+const previewPayable = computed(() => Math.max(previewOriginal.value - previewDiscount.value, 0));
 
 const filteredProducts = computed(() => {
   const keyword = addKeyword.value.trim();
@@ -275,7 +385,11 @@ async function openMove() {
 async function confirmMove() {
   if (!detail.value || !moveTargetId.value) return;
   try {
-    await ElMessageBox.confirm('确认换桌？', '确认', { type: 'warning' });
+    await ElMessageBox.confirm('确认换桌？', '确认', {
+      type: 'warning',
+      confirmButtonText: '确认',
+      cancelButtonText: '取消'
+    });
     await adminApi.moveSessionTable(detail.value.session.sessionId, {
       fromTableId: detail.value.session.tableId,
       toTableId: moveTargetId.value
@@ -372,7 +486,11 @@ function openRefund(row: { productId: string; nameSnapshot: string; totalQty: nu
 async function submitRefund() {
   if (!detail.value || !refundTarget.value) return;
   try {
-    await ElMessageBox.confirm('确认退菜？', '确认', { type: 'warning' });
+    await ElMessageBox.confirm('确认退菜？', '确认', {
+      type: 'warning',
+      confirmButtonText: '确认',
+      cancelButtonText: '取消'
+    });
     refundSubmitting.value = true;
     await adminApi.refundSessionItem(detail.value.session.sessionId, {
       productId: refundTarget.value.productId,
@@ -389,10 +507,85 @@ async function submitRefund() {
   }
 }
 
+function resetDiscount() {
+  discountSubmitting.value = false;
+  discountMode.value = 'PERCENT';
+  discountRate.value = 100;
+  discountMinusYuan.value = 0;
+}
+
+function openDiscount() {
+  if (!detail.value) return;
+  if (detail.value.session.status !== 'ACTIVE') {
+    ElMessage.warning('该会话已结账，无法修改折扣');
+    return;
+  }
+  const type = detail.value.discountType;
+  if (type === 'AMOUNT') {
+    discountMode.value = 'AMOUNT';
+    discountMinusYuan.value = (detail.value.discountValue ?? 0) / 100;
+  } else {
+    discountMode.value = 'PERCENT';
+    discountRate.value = detail.value.discountValue ?? 100;
+  }
+  discountVisible.value = true;
+}
+
+async function submitDiscount() {
+  if (!detail.value) return;
+  if (detail.value.session.status !== 'ACTIVE') {
+    ElMessage.warning('该会话已结账，无法修改折扣');
+    return;
+  }
+  discountSubmitting.value = true;
+  try {
+    if (discountMode.value === 'PERCENT') {
+      const rate = Math.min(100, Math.max(1, Math.floor(discountRate.value)));
+      await adminApi.setSessionDiscount(detail.value.session.sessionId, { type: 'PERCENT', value: rate });
+    } else {
+      const amount = Math.min(toCents(discountMinusYuan.value), previewOriginal.value);
+      await adminApi.setSessionDiscount(detail.value.session.sessionId, { type: 'AMOUNT', value: amount });
+    }
+    ElMessage.success('折扣已更新');
+    discountVisible.value = false;
+    await refresh();
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message ?? '设置折扣失败');
+  } finally {
+    discountSubmitting.value = false;
+  }
+}
+
+async function clearDiscount() {
+  if (!detail.value) return;
+  if (detail.value.session.status !== 'ACTIVE') {
+    ElMessage.warning('该会话已结账，无法修改折扣');
+    return;
+  }
+  try {
+    await ElMessageBox.confirm('确认清除订单折扣？', '确认', {
+      type: 'warning',
+      confirmButtonText: '确认',
+      cancelButtonText: '取消'
+    });
+    await adminApi.clearSessionDiscount(detail.value.session.sessionId);
+    ElMessage.success('已清除折扣');
+    discountVisible.value = false;
+    await refresh();
+  } catch (e: any) {
+    if (e === 'cancel') return;
+    ElMessage.error(e?.response?.data?.message ?? '清除折扣失败');
+  }
+}
+
 async function settleCurrent() {
   if (!detail.value) return;
   try {
-    await ElMessageBox.confirm('确认结账？', '确认', { type: 'warning' });
+    await ElMessageBox.confirm('确认结账？', '确认', {
+      type: 'warning',
+      confirmButtonText: '确认',
+      cancelButtonText: '取消'
+    });
     await adminApi.settleSession(detail.value.session.sessionId);
     ElMessage.success('已结账');
     emit('settled', detail.value.session.sessionId);

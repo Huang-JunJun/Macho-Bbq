@@ -17,6 +17,8 @@ import { AdminPrintController } from './print/admin-print.controller';
 import { PrintAgentController } from './print/print-agent.controller';
 import { AdminMenuController } from './menus/admin-menu.controller';
 import { AdminRoleController } from './role/admin-role.controller';
+import { MiniappCodeService } from '../common/miniapp-code.service';
+import { AdminStatsController } from './stats/admin-stats.controller';
 
 @Module({
   imports: [AuthModule, WsModule],
@@ -34,8 +36,9 @@ import { AdminRoleController } from './role/admin-role.controller';
     AdminPrintController,
     PrintAgentController,
     AdminMenuController,
-    AdminRoleController
+    AdminRoleController,
+    AdminStatsController
   ],
-  providers: [IsTableInStoreConstraint, AdminSessionService]
+  providers: [IsTableInStoreConstraint, AdminSessionService, MiniappCodeService]
 })
 export class AdminModule {}

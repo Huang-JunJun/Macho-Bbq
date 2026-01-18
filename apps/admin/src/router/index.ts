@@ -14,6 +14,7 @@ import TableDashboardPage from '../pages/TableDashboard.vue';
 import StaffPage from '../pages/Staff.vue';
 import PrintPage from '../pages/Print.vue';
 import RolesPage from '../pages/Roles.vue';
+import StatsPage from '../pages/Stats.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -34,7 +35,8 @@ const router = createRouter({
         { path: 'store', component: StorePage, meta: { menuKey: 'store' } },
         { path: 'staff', component: StaffPage, meta: { menuKey: 'staff' } },
         { path: 'roles', component: RolesPage, meta: { menuKey: 'roles' } },
-        { path: 'print', component: PrintPage, meta: { menuKey: 'print' } }
+        { path: 'print', component: PrintPage, meta: { menuKey: 'print' } },
+        { path: 'stats', component: StatsPage, meta: { menuKey: 'stats' } }
       ]
     },
     { path: '/:pathMatch(.*)*', redirect: '/orders' }

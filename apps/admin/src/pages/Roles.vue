@@ -145,7 +145,11 @@ async function saveRole() {
 
 async function removeRole(role: Role) {
   try {
-    await ElMessageBox.confirm(`确认删除角色：${role.name}？`, '确认', { type: 'warning' });
+    await ElMessageBox.confirm(`确认删除角色：${role.name}？`, '确认', {
+      type: 'warning',
+      confirmButtonText: '确认',
+      cancelButtonText: '取消'
+    });
     await adminApi.deleteRole(role.id);
     await reload();
   } catch (e: any) {

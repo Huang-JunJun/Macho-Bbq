@@ -255,7 +255,11 @@ async function save() {
 
 async function remove(row: Product) {
   try {
-    await ElMessageBox.confirm(`删除商品：${row.name}？`, '确认', { type: 'warning' });
+    await ElMessageBox.confirm(`删除商品：${row.name}？`, '确认', {
+      type: 'warning',
+      confirmButtonText: '确认',
+      cancelButtonText: '取消'
+    });
     await adminApi.deleteProduct(row.id);
     await reload();
   } catch (e: any) {
