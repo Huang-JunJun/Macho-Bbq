@@ -1,8 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { formatDateTimeCN } from '../common/datetime';
 import { randomBytes } from 'crypto';
 import { calcDiscount } from '../common/discount';
+
+const MAX_PRINT_CONTENT_BYTES = 200000;
 
 @Injectable()
 export class PrintService {
@@ -10,6 +13,25 @@ export class PrintService {
 
   private formatAmount(amount: number) {
     return `¥${(amount / 100).toFixed(2)}`;
+  }
+
+  private assertPrintContentSize(content: string) {
+    const size = Buffer.byteLength(content ?? '', 'utf8');
+    if (size > MAX_PRINT_CONTENT_BYTES) {
+      throw new BadRequestException('打印内容过长，请减少内容后重试');
+    }
+  }
+
+  async createJob(data: Prisma.print_jobCreateInput) {
+    this.assertPrintContentSize(String(data.content ?? ''));
+    try {
+      return await this.prisma.print_job.create({ data });
+    } catch (err: any) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2000') {
+        throw new BadRequestException('打印内容过长，请减少内容后重试');
+      }
+      throw err;
+    }
   }
 
   private buildLines(lines: string[]) {
@@ -202,16 +224,14 @@ export class PrintService {
     const key = `kitchen:${orderId}`;
     const existing = await this.prisma.print_job.findUnique({ where: { idempotencyKey: key } });
     if (existing) return existing;
-    return this.prisma.print_job.create({
-      data: {
-        storeId: result.storeId,
-        printerId: printer.id,
-        type: 'KITCHEN_TICKET',
-        sessionId: result.sessionId,
-        orderId,
-        content: result.content,
-        idempotencyKey: key
-      }
+    return this.createJob({
+      storeId: result.storeId,
+      printerId: printer.id,
+      type: 'KITCHEN_TICKET',
+      sessionId: result.sessionId,
+      orderId,
+      content: result.content,
+      idempotencyKey: key
     });
   }
 
@@ -219,15 +239,13 @@ export class PrintService {
     const result = await this.buildBillTicket(sessionId);
     const printer = await this.getActivePrinter(result.storeId);
     if (!printer) throw new BadRequestException('未配置打印机');
-    return this.prisma.print_job.create({
-      data: {
-        storeId: result.storeId,
-        printerId: printer.id,
-        type: 'BILL_TICKET',
-        sessionId: result.sessionId,
-        content: result.content,
-        operatorAdminUserId
-      }
+    return this.createJob({
+      storeId: result.storeId,
+      printerId: printer.id,
+      type: 'BILL_TICKET',
+      sessionId: result.sessionId,
+      content: result.content,
+      operatorAdminUserId
     });
   }
 
@@ -248,16 +266,14 @@ export class PrintService {
       const existing = await this.prisma.print_job.findUnique({ where: { idempotencyKey: key } });
       if (existing) return existing;
     }
-    return this.prisma.print_job.create({
-      data: {
-        storeId: result.storeId,
-        printerId: printer.id,
-        type: 'RECEIPT_TICKET',
-        sessionId: result.sessionId,
-        content: result.content,
-        operatorAdminUserId,
-        ...(key ? { idempotencyKey: key } : {})
-      }
+    return this.createJob({
+      storeId: result.storeId,
+      printerId: printer.id,
+      type: 'RECEIPT_TICKET',
+      sessionId: result.sessionId,
+      content: result.content,
+      operatorAdminUserId,
+      ...(key ? { idempotencyKey: key } : {})
     });
   }
 

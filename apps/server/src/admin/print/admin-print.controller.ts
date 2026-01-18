@@ -121,16 +121,14 @@ export class AdminPrintController {
     if (job.status !== 'FAILED') throw new BadRequestException('仅失败任务可重试');
     const printer = await this.prisma.printer.findFirst({ where: { id: job.printerId, storeId: admin.storeId } });
     if (!printer) throw new NotFoundException('打印机不存在');
-    const newJob = await this.prisma.print_job.create({
-      data: {
-        storeId: admin.storeId,
-        printerId: printer.id,
-        type: job.type,
-        sessionId: job.sessionId,
-        orderId: job.orderId,
-        content: job.content,
-        operatorAdminUserId: admin.adminUserId
-      }
+    const newJob = await this.print.createJob({
+      storeId: admin.storeId,
+      printerId: printer.id,
+      type: job.type,
+      sessionId: job.sessionId,
+      orderId: job.orderId,
+      content: job.content,
+      operatorAdminUserId: admin.adminUserId
     });
     return { job: newJob };
   }
