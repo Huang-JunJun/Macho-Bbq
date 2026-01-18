@@ -19,6 +19,7 @@
     <el-table :data="printers" style="width: 100%">
       <el-table-column prop="name" label="名称" min-width="200" />
       <el-table-column prop="provider" label="类型" width="140" />
+      <el-table-column prop="id" label="打印机ID" min-width="220" />
       <el-table-column prop="agentKey" label="AgentKey" min-width="260" />
       <el-table-column label="启用" width="120">
         <template #default="{ row }">
