@@ -359,7 +359,7 @@ model print_job {
   sessionId          String
   orderId            String?
   status             PrintJobStatus @default(PENDING)
-  content            String
+  content            String      @db.LongText
   errorMessage       String?
   operatorAdminUserId String?
   idempotencyKey     String?      @unique

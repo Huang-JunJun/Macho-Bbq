@@ -22,7 +22,7 @@ export class WsService {
   init(server: any) {
     const adminPaths = ['/admin/ws', '/ws/admin'];
     for (const path of adminPaths) {
-      const wss = new WebSocketServer({ server, path });
+      const wss = new WebSocketServer({ server, path, perMessageDeflate: false });
       wss.on('connection', (ws, req) => {
         this.handleAdminConnection(ws, req).catch(() => {
           try {
@@ -33,7 +33,7 @@ export class WsService {
       this.adminWssList.push(wss);
     }
 
-    this.mpWss = new WebSocketServer({ server, path: '/mp/ws' });
+    this.mpWss = new WebSocketServer({ server, path: '/mp/ws', perMessageDeflate: false });
     this.mpWss.on('connection', (ws, req) => {
       this.handleMpConnection(ws, req).catch(() => {
         try {
