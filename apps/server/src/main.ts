@@ -21,7 +21,9 @@ async function bootstrap() {
         'http://localhost:5173',
         'http://127.0.0.1:5173',
         'http://localhost:5174',
-        'http://127.0.0.1:5174'
+        'http://127.0.0.1:5174',
+        'https://www.wjlbbq.online',
+        'https://wjlbbq.online'
       ]);
       return cb(null, allowed.has(origin));
     }
