@@ -21,7 +21,7 @@ services:
 
   bbq-server:
     container_name: bbq-server
-    image: ccr.ccs.tencentyun.com/macho_bbq/bbq-server:${TAG}
+    image: ccr.ccs.tencentyun.com/macho_bbq/bbq-server:${TAG:-latest}
     depends_on:
       - mysql
     env_file:
