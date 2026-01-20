@@ -122,13 +122,13 @@ export class AdminPrintController {
     const printer = await this.prisma.printer.findFirst({ where: { id: job.printerId, storeId: admin.storeId } });
     if (!printer) throw new NotFoundException('打印机不存在');
     const newJob = await this.print.createJob({
-      storeId: admin.storeId,
-      printerId: printer.id,
+      store: { connect: { id: admin.storeId } },
+      printer: { connect: { id: printer.id } },
+      session: { connect: { id: job.sessionId } },
       type: job.type,
-      sessionId: job.sessionId,
-      orderId: job.orderId,
+      orderId: job.orderId ?? undefined,
       content: job.content,
-      operatorAdminUserId: admin.adminUserId
+      operator: { connect: { id: admin.adminUserId } }
     });
     return { job: newJob };
   }

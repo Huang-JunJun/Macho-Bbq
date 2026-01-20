@@ -1,0 +1,12 @@
+CCR_REGISTRY=ccr.ccs.tencentyun.com
+CCR_NAMESPACE=macho_bbq
+CCR_SERVER_REPO=bbq-server
+CCR_USERNAME=100045650724
+NODE_IMAGE=ccr.ccs.tencentyun.com/macho_bbq/node:18-bullseye-slim
+SERVER_SSH=ubuntu@124.222.200.13
+SERVER_APP_DIR=/opt/bbq-miniapp/Macho-Bbq
+DOMAIN=https://www.wjlbbq.online
+HEALTHCHECK_PATHS="/ /store/store_demo/info /admin/"
+HEALTHCHECK_CODES="200 301 302 304"
+HEALTHCHECK_RETRY=30
+HEALTHCHECK_INTERVAL=2

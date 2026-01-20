@@ -7,6 +7,7 @@ apps/server/uploads/*
 *.log
 deploy/env/.env.*
 !deploy/env/.env.*.example
+deploy/.last_tag
 deploy/ssl/**
 deploy/data/html/**
 deploy/data/uploads/**

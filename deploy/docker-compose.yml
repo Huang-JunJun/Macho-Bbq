@@ -21,11 +21,7 @@ services:
 
   bbq-server:
     container_name: bbq-server
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile.server
-      args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:18-alpine}
+    image: ccr.ccs.tencentyun.com/macho_bbq/bbq-server:${TAG}
     depends_on:
       - mysql
     env_file:
@@ -45,8 +41,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
       - ./data/html:/usr/share/nginx/html:ro
     restart: always

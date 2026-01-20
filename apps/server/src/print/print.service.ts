@@ -225,10 +225,10 @@ export class PrintService {
     const existing = await this.prisma.print_job.findUnique({ where: { idempotencyKey: key } });
     if (existing) return existing;
     return this.createJob({
-      storeId: result.storeId,
-      printerId: printer.id,
+      store: { connect: { id: result.storeId } },
+      printer: { connect: { id: printer.id } },
+      session: { connect: { id: result.sessionId } },
       type: 'KITCHEN_TICKET',
-      sessionId: result.sessionId,
       orderId,
       content: result.content,
       idempotencyKey: key
@@ -240,12 +240,12 @@ export class PrintService {
     const printer = await this.getActivePrinter(result.storeId);
     if (!printer) throw new BadRequestException('未配置打印机');
     return this.createJob({
-      storeId: result.storeId,
-      printerId: printer.id,
+      store: { connect: { id: result.storeId } },
+      printer: { connect: { id: printer.id } },
+      session: { connect: { id: result.sessionId } },
       type: 'BILL_TICKET',
-      sessionId: result.sessionId,
       content: result.content,
-      operatorAdminUserId
+      ...(operatorAdminUserId ? { operator: { connect: { id: operatorAdminUserId } } } : {})
     });
   }
 
@@ -267,12 +267,12 @@ export class PrintService {
       if (existing) return existing;
     }
     return this.createJob({
-      storeId: result.storeId,
-      printerId: printer.id,
+      store: { connect: { id: result.storeId } },
+      printer: { connect: { id: printer.id } },
+      session: { connect: { id: result.sessionId } },
       type: 'RECEIPT_TICKET',
-      sessionId: result.sessionId,
       content: result.content,
-      operatorAdminUserId,
+      ...(operatorAdminUserId ? { operator: { connect: { id: operatorAdminUserId } } } : {}),
       ...(key ? { idempotencyKey: key } : {})
     });
   }

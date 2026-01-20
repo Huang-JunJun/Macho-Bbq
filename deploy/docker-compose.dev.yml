@@ -7,7 +7,7 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile.server
       args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:18-alpine}
+        NODE_IMAGE: ${NODE_IMAGE:-ccr.ccs.tencentyun.com/macho_bbq/node:18-bullseye-slim}
     env_file:
       - ./env/.env.server
     ports:
