@@ -3,25 +3,25 @@ setlocal
 
 set SCRIPT_DIR=%~dp0
 set CONFIG_FILE=%SCRIPT_DIR%print-agent-path.txt
-set REPO_DIR=
+set AGENT_DIR=
 
-if exist "%CONFIG_FILE%" (
-  set /p REPO_DIR=<"%CONFIG_FILE%"
+if exist "%SCRIPT_DIR%index.js" (
+  set AGENT_DIR=%SCRIPT_DIR%
+) else if exist "%SCRIPT_DIR%print-agent\\index.js" (
+  set AGENT_DIR=%SCRIPT_DIR%print-agent
+) else if exist "%CONFIG_FILE%" (
+  set /p AGENT_DIR=<"%CONFIG_FILE%"
 )
 
-if not exist "%REPO_DIR%\apps\print-agent\index.js" (
-  echo Enter repo root path (e.g. C:\repo\Macho-Bbq):
-  set /p REPO_DIR=
-)
-
-if not exist "%REPO_DIR%\apps\print-agent\index.js" (
-  echo ERROR: Cannot find apps\print-agent\index.js under "%REPO_DIR%".
+if not exist "%AGENT_DIR%\index.js" (
+  echo ERROR: Cannot find print-agent folder.
+  echo Place this .bat inside the print-agent folder, or next to a print-agent folder on Desktop.
   pause
   exit /b 1
 )
 
-echo %REPO_DIR%>"%CONFIG_FILE%"
-cd /d "%REPO_DIR%\apps\print-agent"
+echo %AGENT_DIR%>"%CONFIG_FILE%"
+cd /d "%AGENT_DIR%"
 
 where node >nul 2>&1
 if errorlevel 1 (
@@ -41,12 +41,14 @@ if not exist ".env" (
   exit /b 1
 )
 
-echo Installing dependencies...
-npm install
-if errorlevel 1 (
-  echo ERROR: npm install failed.
-  pause
-  exit /b 1
+if not exist "node_modules" (
+  echo Installing dependencies...
+  npm install
+  if errorlevel 1 (
+    echo ERROR: npm install failed.
+    pause
+    exit /b 1
+  )
 )
 
 echo Starting print agent...
