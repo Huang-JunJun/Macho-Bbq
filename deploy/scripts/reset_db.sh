@@ -39,7 +39,7 @@ echo "清库并重建结构..."
 reset_ok=0
 for i in {1..10}; do
   if "${COMPOSE[@]}" --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -T bbq-server \
-    pnpm -C apps/server prisma db push --force-reset --accept-data-loss; then
+    sh -lc 'cd /app/apps/server && pnpm prisma db push --force-reset --accept-data-loss'; then
     reset_ok=1
     break
   fi
@@ -54,7 +54,7 @@ fi
 
 echo "写入种子数据..."
 "${COMPOSE[@]}" --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -T bbq-server \
-  pnpm -C apps/server seed
+  sh -lc 'cd /app/apps/server && pnpm seed'
 
 echo "完成。当前容器状态："
 "${COMPOSE[@]}" --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" ps
