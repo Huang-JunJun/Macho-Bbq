@@ -111,10 +111,10 @@ export const api = {
   getStoreInfo(storeId: string) {
     return request<{ store: Store }>({ path: `/store/${storeId}/info`, method: 'GET' });
   },
-  resolveTable(params: { storeId: string; tableId: string; sign: string }) {
+  resolveTable(params: { storeId: string; tableId?: string; tableCode?: string; sign: string }) {
     return request<TableResolveRes>({ path: '/table/resolve', method: 'GET', query: params });
   },
-  startTableSession(req: { storeId: string; tableId: string; sign: string; dinersCount: number }) {
+  startTableSession(req: { storeId: string; tableId?: string; tableCode?: string; sign: string; dinersCount: number }) {
     return request<TableSessionStartRes>({ path: '/table/session/start', method: 'POST', data: req });
   },
   checkTableSession(params: { storeId: string; tableId: string; sessionId: string }) {

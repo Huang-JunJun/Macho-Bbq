@@ -1,4 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
@@ -24,8 +25,9 @@ export class AdminTableController {
 
   @Post()
   async create(@CurrentAdmin() admin: AdminJwtUser, @Body() dto: CreateTableDto) {
+    const tableCode = await this.getNextTableCode(admin.storeId);
     const table = await this.prisma.table.create({
-      data: { storeId: admin.storeId, name: dto.name, isActive: dto.isActive ?? true }
+      data: { storeId: admin.storeId, name: dto.name, isActive: dto.isActive ?? true, tableCode }
     });
     return { table };
   }
@@ -145,16 +147,56 @@ export class AdminTableController {
 
   @Get(':id/qrcode')
   async qrcode(@CurrentAdmin() admin: AdminJwtUser, @Param('id') id: string) {
+    await this.ensureTableCodes(admin.storeId);
     const table = await this.prisma.table.findFirst({ where: { id, storeId: admin.storeId } });
     if (!table) throw new NotFoundException('桌台不存在');
     if (table.isDeleted || !table.isActive) throw new BadRequestException('桌台已停用或已删除，无法生成二维码');
+    if (!table.tableCode) throw new BadRequestException('桌台短码生成失败，请稍后重试');
 
     const secret = String(this.config.get('TABLE_SIGN_SECRET') ?? 'change-me');
-    const sign = signTable(admin.storeId, table.id, secret);
-    const content = `pages/scan/index?storeId=${encodeURIComponent(admin.storeId)}&tableId=${encodeURIComponent(
-      table.id
-    )}&sign=${encodeURIComponent(sign)}`;
+    const sign = signTable(admin.storeId, String(table.tableCode), secret);
+    const content = `pages/scan/index?s=${encodeURIComponent(admin.storeId)}&t=${encodeURIComponent(
+      String(table.tableCode)
+    )}&k=${encodeURIComponent(sign)}`;
     const base64 = await this.miniappCode.getWxacode(content);
     return { content, base64 };
+  }
+
+  private async getNextTableCode(storeId: string) {
+    const rows = await this.prisma.table.findMany({
+      where: { storeId },
+      select: { tableCode: true }
+    });
+    const used = new Set<number>();
+    for (const row of rows) {
+      if (row.tableCode !== null && row.tableCode !== undefined) used.add(row.tableCode);
+    }
+    let code = 1;
+    while (used.has(code)) code += 1;
+    if (code > 10000) throw new BadRequestException('桌台短码已达上限');
+    return code;
+  }
+
+  private async ensureTableCodes(storeId: string) {
+    const tables = await this.prisma.table.findMany({
+      where: { storeId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, tableCode: true }
+    });
+    const used = new Set<number>();
+    for (const t of tables) {
+      if (t.tableCode !== null && t.tableCode !== undefined) used.add(t.tableCode);
+    }
+    let next = 1;
+    const updates: Prisma.PrismaPromise<unknown>[] = [];
+    for (const t of tables) {
+      if (t.tableCode !== null && t.tableCode !== undefined) continue;
+      while (used.has(next)) next += 1;
+      if (next > 10000) throw new BadRequestException('桌台短码已达上限');
+      updates.push(this.prisma.table.update({ where: { id: t.id }, data: { tableCode: next } }));
+      used.add(next);
+      next += 1;
+    }
+    if (updates.length) await this.prisma.$transaction(updates);
   }
 }

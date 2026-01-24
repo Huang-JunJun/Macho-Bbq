@@ -26,8 +26,13 @@ function extractScanPath(raw: string) {
   const i = s.indexOf(key);
   if (i >= 0) return normalizeToUrl(s.slice(i));
 
-  if (s.includes('storeId=') && s.includes('tableId=') && s.includes('sign=')) {
+  if (s.includes('storeId=') && (s.includes('tableId=') || s.includes('tableCode=')) && s.includes('sign=')) {
     const j = s.indexOf('storeId=');
+    if (j >= 0) return normalizeToUrl(`pages/scan/index?${s.slice(j)}`);
+  }
+
+  if (s.includes('s=') && s.includes('t=') && s.includes('k=')) {
+    const j = s.indexOf('s=');
     if (j >= 0) return normalizeToUrl(`pages/scan/index?${s.slice(j)}`);
   }
 

@@ -7,7 +7,6 @@
         </view>
         <view class="nav-center">
           <view class="tabs">
-            <view class="tab" :class="{ on: uiTab === 'today' }" @click="uiTab = 'today'">今日订单</view>
             <view class="tab" :class="{ on: uiTab === 'history' }" @click="uiTab = 'history'">历史订单</view>
           </view>
         </view>
@@ -68,7 +67,7 @@ import { scanToOrder } from '../../common/scan';
 const tableStore = useTableStore();
 const orders = ref<Order[]>([]);
 const loading = ref(false);
-const uiTab = ref<'today' | 'history'>('today');
+const uiTab = ref<'today' | 'history'>('history');
 
 const ready = computed(() => {
   return !!tableStore.isReady;
@@ -117,6 +116,7 @@ function goScan() {
 }
 
 onShow(() => {
+  if (uiTab.value === 'today') uiTab.value = 'history';
   if (!ready.value) return;
   reload();
 });

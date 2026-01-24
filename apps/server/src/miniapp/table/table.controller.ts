@@ -12,15 +12,29 @@ export class MiniTableController {
     private config: ConfigService
   ) {}
 
+  private parseTableCode(raw?: string) {
+    if (!raw) return null;
+    const num = Math.floor(Number(raw));
+    if (!Number.isFinite(num) || num <= 0) throw new BadRequestException('桌台短码无效');
+    return num;
+  }
+
   @Get('resolve')
   async resolve(@Query() q: ResolveTableDto) {
     const secret = String(this.config.get('TABLE_SIGN_SECRET') ?? 'change-me');
-    const ok = verifyTableSign(q.storeId, q.tableId, secret, q.sign);
+    const tableCode = this.parseTableCode(q.tableCode);
+    const tableKey = tableCode ? String(tableCode) : String(q.tableId ?? '');
+    if (!q.storeId || !tableKey || !q.sign) throw new BadRequestException('参数缺失');
+    const ok = verifyTableSign(q.storeId, tableKey, secret, q.sign);
     if (!ok) throw new BadRequestException('桌贴无效/已过期，请联系店员');
 
-    const table = await this.prisma.table.findFirst({
-      where: { id: q.tableId, storeId: q.storeId, isActive: true, isDeleted: false }
-    });
+    const table = tableCode
+      ? await this.prisma.table.findFirst({
+          where: { storeId: q.storeId, tableCode, isActive: true, isDeleted: false }
+        })
+      : await this.prisma.table.findFirst({
+          where: { id: q.tableId, storeId: q.storeId, isActive: true, isDeleted: false }
+        });
     if (!table) throw new BadRequestException('桌号无效或已停用');
     const store = await this.prisma.store.findUnique({ where: { id: q.storeId } });
     return { ok: true, table, store, tableName: table.name, storeName: store?.name ?? '' };
@@ -29,19 +43,26 @@ export class MiniTableController {
   @Post('session/start')
   async startSession(@Body() dto: StartTableSessionDto) {
     const secret = String(this.config.get('TABLE_SIGN_SECRET') ?? 'change-me');
-    const ok = verifyTableSign(dto.storeId, dto.tableId, secret, dto.sign);
+    const tableCode = this.parseTableCode(dto.tableCode);
+    const tableKey = tableCode ? String(tableCode) : String(dto.tableId ?? '');
+    if (!dto.storeId || !tableKey || !dto.sign) throw new BadRequestException('参数缺失');
+    const ok = verifyTableSign(dto.storeId, tableKey, secret, dto.sign);
     if (!ok) throw new BadRequestException('桌贴无效/已过期，请联系店员');
 
-    const table = await this.prisma.table.findFirst({
-      where: { id: dto.tableId, storeId: dto.storeId, isActive: true, isDeleted: false }
-    });
+    const table = tableCode
+      ? await this.prisma.table.findFirst({
+          where: { storeId: dto.storeId, tableCode, isActive: true, isDeleted: false }
+        })
+      : await this.prisma.table.findFirst({
+          where: { id: dto.tableId, storeId: dto.storeId, isActive: true, isDeleted: false }
+        });
     if (!table) throw new BadRequestException('桌号无效或已停用');
 
     const store = await this.prisma.store.findUnique({ where: { id: dto.storeId } });
     if (!store) throw new NotFoundException('门店不存在');
 
     const existing = await this.prisma.dining_session.findFirst({
-      where: { storeId: dto.storeId, tableId: dto.tableId, status: 'ACTIVE', isDeleted: false },
+      where: { storeId: dto.storeId, tableId: table.id, status: 'ACTIVE', isDeleted: false },
       orderBy: { createdAt: 'desc' }
     });
 
@@ -51,7 +72,7 @@ export class MiniTableController {
           data: { dinersCount: dto.dinersCount }
         })
       : await this.prisma.dining_session.create({
-          data: { storeId: dto.storeId, tableId: dto.tableId, status: 'ACTIVE', dinersCount: dto.dinersCount }
+          data: { storeId: dto.storeId, tableId: table.id, status: 'ACTIVE', dinersCount: dto.dinersCount }
         });
 
     await this.prisma.table.update({
@@ -62,7 +83,7 @@ export class MiniTableController {
     return {
       sessionId: session.id,
       storeId: dto.storeId,
-      tableId: dto.tableId,
+      tableId: table.id,
       storeName: store.name,
       tableName: table.name,
       dinersCount: session.dinersCount

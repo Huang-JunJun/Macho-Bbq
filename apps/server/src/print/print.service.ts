@@ -6,6 +6,14 @@ import { randomBytes } from 'crypto';
 import { calcDiscount } from '../common/discount';
 
 const MAX_PRINT_CONTENT_BYTES = 200000;
+const PRINT_LINE_WIDTH = 48;
+const PRINT_NAME_COL = 24;
+const PRINT_PRICE_COL = 7;
+const PRINT_QTY_COL = 5;
+const PRINT_TOTAL_COL = 9;
+const PRINT_NAME_CONTINUATION = '  ';
+const PRINT_TAIL_LINES = 6;
+const PRINT_KITCHEN_TAIL_LINES = 5;
 
 @Injectable()
 export class PrintService {
@@ -13,6 +21,138 @@ export class PrintService {
 
   private formatAmount(amount: number) {
     return `¥${(amount / 100).toFixed(2)}`;
+  }
+
+  private formatAmountPlain(amount: number) {
+    return (amount / 100).toFixed(2);
+  }
+
+  private textWidth(text: string) {
+    let width = 0;
+    for (const ch of String(text ?? '')) {
+      const code = ch.codePointAt(0) ?? 0;
+      width += code > 0xff ? 2 : 1;
+    }
+    return width;
+  }
+
+  private splitByWidth(text: string, maxWidth: number) {
+    const value = String(text ?? '');
+    let width = 0;
+    let idx = 0;
+    for (const ch of value) {
+      const code = ch.codePointAt(0) ?? 0;
+      const w = code > 0xff ? 2 : 1;
+      if (width + w > maxWidth) break;
+      width += w;
+      idx += ch.length;
+    }
+    return { line: value.slice(0, idx), rest: value.slice(idx) };
+  }
+
+  private padRight(text: string, maxWidth: number, truncate = true) {
+    const line = truncate ? this.splitByWidth(text, maxWidth).line : String(text ?? '');
+    const pad = maxWidth - this.textWidth(line);
+    return line + ' '.repeat(Math.max(0, pad));
+  }
+
+  private padLeft(text: string, maxWidth: number, truncate = true) {
+    const line = truncate ? this.splitByWidth(text, maxWidth).line : String(text ?? '');
+    const pad = maxWidth - this.textWidth(line);
+    return ' '.repeat(Math.max(0, pad)) + line;
+  }
+
+  private wrapText(text: string, maxWidth: number, indent = '') {
+    const lines: string[] = [];
+    let remaining = String(text ?? '');
+    let first = true;
+    while (remaining.length > 0) {
+      const prefix = first ? '' : indent;
+      const available = maxWidth - this.textWidth(prefix);
+      const { line, rest } = this.splitByWidth(remaining, Math.max(0, available));
+      if (!line) break;
+      lines.push(prefix + line);
+      remaining = rest;
+      first = false;
+    }
+    if (!lines.length) lines.push(indent ? indent : '');
+    return lines;
+  }
+
+  private twoColumn(left: string, right: string) {
+    const leftText = String(left ?? '');
+    const rightText = String(right ?? '');
+    const total = this.textWidth(leftText) + this.textWidth(rightText);
+    if (total + 1 <= PRINT_LINE_WIDTH) {
+      const spaces = PRINT_LINE_WIDTH - this.textWidth(leftText) - this.textWidth(rightText);
+      return [leftText + ' '.repeat(spaces) + rightText];
+    }
+    return [leftText, rightText];
+  }
+
+  private lineWithValue(label: string, value: string) {
+    return this.twoColumn(label, value);
+  }
+
+  private itemHeaderLine() {
+    return (
+      this.padRight('品名', PRINT_NAME_COL) +
+      ' ' +
+      this.padLeft('单价', PRINT_PRICE_COL) +
+      ' ' +
+      this.padLeft('数量', PRINT_QTY_COL) +
+      ' ' +
+      this.padLeft('小计', PRINT_TOTAL_COL)
+    );
+  }
+
+  private buildItemLines(name: string, priceText: string, qtyText: string, totalText: string) {
+    const { line: firstChunk, rest } = this.splitByWidth(name, PRINT_NAME_COL);
+    const lines = [
+      this.padRight(firstChunk, PRINT_NAME_COL) +
+        ' ' +
+        this.padLeft(priceText, PRINT_PRICE_COL, false) +
+        ' ' +
+        this.padLeft(qtyText, PRINT_QTY_COL, false) +
+        ' ' +
+        this.padLeft(totalText, PRINT_TOTAL_COL, false)
+    ];
+    let remaining = rest;
+    while (remaining.length > 0) {
+      const available = PRINT_LINE_WIDTH - this.textWidth(PRINT_NAME_CONTINUATION);
+      const next = this.splitByWidth(remaining, Math.max(0, available));
+      if (!next.line) break;
+      lines.push(`${PRINT_NAME_CONTINUATION}${next.line}`);
+      remaining = next.rest;
+    }
+    return lines;
+  }
+
+  private buildKitchenItemLines(name: string, qty: number) {
+    const qtyText = `x${qty}`;
+    const qtyWidth = this.textWidth(qtyText);
+    const nameWidth = Math.max(0, PRINT_LINE_WIDTH - qtyWidth - 1);
+    const { line: firstChunk, rest } = this.splitByWidth(name, nameWidth);
+    const lines = [this.padRight(firstChunk, nameWidth) + ' ' + qtyText];
+    let remaining = rest;
+    while (remaining.length > 0) {
+      const available = PRINT_LINE_WIDTH - this.textWidth(PRINT_NAME_CONTINUATION);
+      const next = this.splitByWidth(remaining, Math.max(0, available));
+      if (!next.line) break;
+      lines.push(`${PRINT_NAME_CONTINUATION}${next.line}`);
+      remaining = next.rest;
+    }
+    return lines;
+  }
+
+  private formatKitchenTableLine(tableName: string) {
+    const esc = '\x1b';
+    const gs = '\x1d';
+    const boldOn = `${esc}E\x01`;
+    const boldOff = `${esc}E\x00`;
+    const sizeOn = `${gs}!\x11`;
+    const sizeOff = `${gs}!\x00`;
+    return `${boldOn}${sizeOn}桌号：${tableName}${sizeOff}${boldOff}`;
   }
 
   private assertPrintContentSize(content: string) {
@@ -34,8 +174,8 @@ export class PrintService {
     }
   }
 
-  private buildLines(lines: string[]) {
-    return `${lines.join('\n')}\n\n\n`;
+  private buildLines(lines: string[], tailLines = 3) {
+    return `${lines.join('\n')}\n${'\n'.repeat(Math.max(0, tailLines))}`;
   }
 
   private async getActivePrinter(storeId: string) {
@@ -119,102 +259,96 @@ export class PrintService {
     const seqNo = await this.prisma.order.count({
       where: { sessionId: order.sessionId, createdAt: { lte: order.createdAt }, status: { not: 'CANCELLED' } }
     });
+    const tableName = order.table?.name ?? order.tableId;
+    const separator = '-'.repeat(PRINT_LINE_WIDTH);
     const lines = [
+      this.formatKitchenTableLine(tableName),
       order.store?.name ?? '',
       '后厨单',
-      '-------------------------------',
-      `桌号：${order.table?.name ?? order.tableId}`,
+      separator,
       `人数：${order.dinersCount}`,
       `下单时间：${formatDateTimeCN(order.createdAt)}`,
       `第${seqNo}次下单`,
-      '-------------------------------'
+      separator
     ];
     for (const item of order.items) {
-      lines.push(`${item.nameSnapshot}  x${item.qty}`);
+      lines.push(...this.buildKitchenItemLines(item.nameSnapshot, item.qty));
     }
-    lines.push('-------------------------------');
-    lines.push(`本次合计：${this.formatAmount(order.amount)}`);
+    lines.push(separator);
     if (order.remark) lines.push(`备注：${order.remark}`);
     const spiceLabel = (order as any).spiceLabelSnapshot || (order as any).spiceKey || '';
     if (spiceLabel) lines.push(`辣度：${spiceLabel}`);
-    return { content: this.buildLines(lines), storeId: order.storeId, sessionId: order.sessionId };
+    return {
+      content: this.buildLines(lines, PRINT_KITCHEN_TAIL_LINES),
+      storeId: order.storeId,
+      sessionId: order.sessionId
+    };
+  }
+
+  private async buildSessionTicket(sessionId: string, title: string) {
+    const session = await this.getSessionWithOrders(sessionId);
+    const orders = session.orders;
+    const firstOrderAt = orders[0]?.createdAt ?? session.createdAt;
+    const lastOrderAt = orders[orders.length - 1]?.createdAt ?? firstOrderAt;
+    const refunds = await this.prisma.session_item_refund.findMany({ where: { sessionId } });
+    const mergedItems = this.applyRefunds(this.mergeItems(orders), refunds);
+    const originalTotal = mergedItems.reduce((sum, it) => sum + it.lineTotal, 0);
+    const { discountAmount, payableTotal } = calcDiscount(
+      originalTotal,
+      session.discountType as any,
+      session.discountValue as any
+    );
+    const tableName = session.table?.name ?? session.tableId;
+    const settledAt = session.closedAt ? formatDateTimeCN(session.closedAt) : '-';
+    const separator = '-'.repeat(PRINT_LINE_WIDTH);
+    const lines: string[] = [];
+    lines.push(session.store?.name ?? '');
+    lines.push(title);
+    lines.push(separator);
+    lines.push(...this.twoColumn(`桌台: ${tableName}`, `人数: ${session.dinersCount}`));
+    lines.push(`订单次数: ${orders.length}`);
+    lines.push(`下单时间: ${formatDateTimeCN(firstOrderAt)}`);
+    lines.push(`最后加菜: ${formatDateTimeCN(lastOrderAt)}`);
+    lines.push(`结账时间: ${settledAt}`);
+    lines.push(separator);
+    lines.push(this.itemHeaderLine());
+    lines.push(separator);
+    for (const item of mergedItems) {
+      lines.push(
+        ...this.buildItemLines(
+          item.nameSnapshot,
+          this.formatAmountPlain(item.priceSnapshot),
+          String(item.totalQty),
+          this.formatAmountPlain(item.lineTotal)
+        )
+      );
+    }
+    lines.push(separator);
+    if (discountAmount > 0) {
+      lines.push(...this.lineWithValue('订单折扣', `-${this.formatAmountPlain(discountAmount)}`));
+      lines.push(separator);
+      lines.push(...this.lineWithValue('原价合计:', this.formatAmountPlain(originalTotal)));
+      lines.push(...this.lineWithValue('折扣金额:', `-${this.formatAmountPlain(discountAmount)}`));
+      lines.push(...this.lineWithValue('应付合计:', this.formatAmountPlain(payableTotal)));
+    } else {
+      lines.push(...this.lineWithValue('合计:', this.formatAmountPlain(originalTotal)));
+    }
+    lines.push(separator);
+    lines.push(`打印时间: ${formatDateTimeCN(new Date())}`);
+    lines.push('谢谢惠顾，请核对金额');
+    return {
+      content: this.buildLines(lines, PRINT_TAIL_LINES),
+      storeId: session.storeId,
+      sessionId: session.id
+    };
   }
 
   async buildBillTicket(sessionId: string) {
-    const session = await this.getSessionWithOrders(sessionId);
-    const orders = session.orders;
-    const firstOrderAt = orders[0]?.createdAt ?? session.createdAt;
-    const lastOrderAt = orders[orders.length - 1]?.createdAt ?? firstOrderAt;
-    const refunds = await this.prisma.session_item_refund.findMany({ where: { sessionId } });
-    const mergedItems = this.applyRefunds(this.mergeItems(orders), refunds);
-    const originalTotal = mergedItems.reduce((sum, it) => sum + it.lineTotal, 0);
-    const { discountAmount, payableTotal } = calcDiscount(
-      originalTotal,
-      session.discountType as any,
-      session.discountValue as any
-    );
-    const lines = [
-      session.store?.name ?? '',
-      '预结账清单',
-      '-------------------------------',
-      `桌号：${session.table?.name ?? session.tableId}`,
-      `人数：${session.dinersCount}`,
-      `首单时间：${formatDateTimeCN(firstOrderAt)}`,
-      `末单时间：${formatDateTimeCN(lastOrderAt)}`,
-      '-------------------------------'
-    ];
-    for (const item of mergedItems) {
-      lines.push(`${item.nameSnapshot}  x${item.totalQty}  ${this.formatAmount(item.lineTotal)}`);
-    }
-    lines.push('-------------------------------');
-    if (discountAmount > 0) {
-      lines.push(`原价：${this.formatAmount(originalTotal)}`);
-      lines.push(`订单折扣：-${this.formatAmount(discountAmount)}`);
-      lines.push(`合计：${this.formatAmount(payableTotal)}`);
-    } else {
-      lines.push(`合计：${this.formatAmount(originalTotal)}`);
-    }
-    return { content: this.buildLines(lines), storeId: session.storeId, sessionId: session.id };
+    return this.buildSessionTicket(sessionId, '预结账清单');
   }
 
-  async buildReceiptTicket(sessionId: string, operatorEmail?: string) {
-    const session = await this.getSessionWithOrders(sessionId);
-    const orders = session.orders;
-    const firstOrderAt = orders[0]?.createdAt ?? session.createdAt;
-    const lastOrderAt = orders[orders.length - 1]?.createdAt ?? firstOrderAt;
-    const refunds = await this.prisma.session_item_refund.findMany({ where: { sessionId } });
-    const mergedItems = this.applyRefunds(this.mergeItems(orders), refunds);
-    const originalTotal = mergedItems.reduce((sum, it) => sum + it.lineTotal, 0);
-    const { discountAmount, payableTotal } = calcDiscount(
-      originalTotal,
-      session.discountType as any,
-      session.discountValue as any
-    );
-    const settledAt = session.closedAt ? formatDateTimeCN(session.closedAt) : '-';
-    const lines = [
-      session.store?.name ?? '',
-      '结账凭证',
-      '-------------------------------',
-      `桌号：${session.table?.name ?? session.tableId}`,
-      `人数：${session.dinersCount}`,
-      `首单时间：${formatDateTimeCN(firstOrderAt)}`,
-      `末单时间：${formatDateTimeCN(lastOrderAt)}`,
-      `结账时间：${settledAt}`,
-      `收银员：${operatorEmail ?? '-'}`,
-      '-------------------------------'
-    ];
-    for (const item of mergedItems) {
-      lines.push(`${item.nameSnapshot}  x${item.totalQty}  ${this.formatAmount(item.lineTotal)}`);
-    }
-    lines.push('-------------------------------');
-    if (discountAmount > 0) {
-      lines.push(`原价：${this.formatAmount(originalTotal)}`);
-      lines.push(`订单折扣：-${this.formatAmount(discountAmount)}`);
-      lines.push(`合计：${this.formatAmount(payableTotal)}`);
-    } else {
-      lines.push(`合计：${this.formatAmount(originalTotal)}`);
-    }
-    return { content: this.buildLines(lines), storeId: session.storeId, sessionId: session.id };
+  async buildReceiptTicket(sessionId: string) {
+    return this.buildSessionTicket(sessionId, '结账清单');
   }
 
   async enqueueKitchen(orderId: string) {
@@ -255,7 +389,7 @@ export class PrintService {
     operatorEmail: string | undefined,
     mode: 'auto' | 'manual'
   ) {
-    const result = await this.buildReceiptTicket(sessionId, operatorEmail);
+    const result = await this.buildReceiptTicket(sessionId);
     const printer = await this.getActivePrinter(result.storeId);
     if (!printer) {
       if (mode === 'auto') return null;

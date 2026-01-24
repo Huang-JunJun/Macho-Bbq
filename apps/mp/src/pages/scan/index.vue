@@ -17,7 +17,7 @@
           </view>
           <view class="row">
             <text class="label">桌号</text>
-            <text class="value">{{ tableName || tableId || '-' }}</text>
+            <text class="value">{{ tableName || tableId || tableCode || '-' }}</text>
           </view>
 
           <view v-if="error" class="error">{{ error }}</view>
@@ -63,6 +63,7 @@ const tableStore = useTableStore();
 
 const storeId = ref('');
 const tableId = ref('');
+const tableCode = ref('');
 const sign = ref('');
 
 const storeName = ref('');
@@ -81,7 +82,7 @@ function toast(msg: string) {
   uni.showToast({ title: msg, icon: 'none' });
 }
 
-const missing = computed(() => !storeId.value || !tableId.value || !sign.value);
+const missing = computed(() => !storeId.value || !sign.value || (!tableId.value && !tableCode.value));
 
 const canStart = computed(() => resolved.value && dinersCount.value >= 1 && dinersCount.value <= 20);
 
@@ -91,7 +92,15 @@ async function resolve() {
   if (missing.value) return;
   loading.value = true;
   try {
-    const res = await api.resolveTable({ storeId: storeId.value, tableId: tableId.value, sign: sign.value });
+    const res = await api.resolveTable({
+      storeId: storeId.value,
+      tableId: tableId.value || undefined,
+      tableCode: tableCode.value || undefined,
+      sign: sign.value
+    });
+    if (!tableId.value && (res as any)?.table?.id) {
+      tableId.value = String((res as any).table.id ?? '');
+    }
     tableName.value = (res as any).tableName || res.table?.name || '';
     storeName.value = (res as any).storeName || (res as any).store?.name || '';
     resolved.value = true;
@@ -121,6 +130,7 @@ async function start() {
     const res = await api.startTableSession({
       storeId: storeId.value,
       tableId: tableId.value,
+      tableCode: tableCode.value || undefined,
       sign: sign.value,
       dinersCount: dinersCount.value
     });
@@ -144,9 +154,10 @@ function goHome() {
 }
 
 onLoad((options) => {
-  storeId.value = String(options?.storeId ?? '');
+  storeId.value = String(options?.storeId ?? options?.s ?? '');
   tableId.value = String(options?.tableId ?? '');
-  sign.value = String(options?.sign ?? '');
+  tableCode.value = String(options?.tableCode ?? options?.t ?? '');
+  sign.value = String(options?.sign ?? options?.k ?? '');
   resolve();
 });
 </script>

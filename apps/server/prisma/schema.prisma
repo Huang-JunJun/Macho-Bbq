@@ -127,6 +127,7 @@ model admin_action_log {
 model table {
   id        String   @id @default(cuid())
   name      String
+  tableCode Int?
   isActive  Boolean  @default(true)
   isDeleted Boolean  @default(false)
   currentSessionId String?
@@ -140,6 +141,7 @@ model table {
   sessions dining_session[]
 
   @@unique([storeId, name])
+  @@unique([storeId, tableCode])
 }
 
 model category {

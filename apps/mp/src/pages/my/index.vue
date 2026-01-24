@@ -46,6 +46,7 @@
           </view>
         </AppCard>
 
+        <view class="signature">© HuangJunJun x WANG</view>
         <view class="bbq-safe-bottom-pad"></view>
       </view>
     </view>
@@ -179,9 +180,20 @@ onShow(() => {
   border-radius: 0;
 }
 .page-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
   padding: var(--bbq-space-3);
   padding-bottom: calc(var(--bbq-tabbar-height) + var(--bbq-safe-bottom));
   box-sizing: border-box;
+}
+.signature {
+  margin-top: auto;
+  padding: 18rpx 0 8rpx;
+  text-align: center;
+  font-size: 24rpx;
+  line-height: 34rpx;
+  color: #b0b0b0;
 }
 .profile-row {
   display: flex;
